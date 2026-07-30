@@ -27,12 +27,37 @@ Endpoints used by this MCP (all GET):
 | `/organizations/{id}/orders/` | organizer orders |
 | `/events/{id}/?expand=venue,organizer,ticket_availability` | ANY public event — live-verified |
 | `/events/{id}/ticket_classes/` | doc-derived |
+| `/events/{id}/ticket_classes/{tcid}/` | doc-derived |
 | `/events/{id}/description/` | full HTML description; doc-derived |
+| `/events/{id}/attendees/` `?status=&changed_since=` | doc-derived |
+| `/events/{id}/attendees/{aid}/` | doc-derived |
+| `/events/{id}/orders/` `?status=&changed_since=` | doc-derived |
+| `/events/{id}/questions/` `/events/{id}/canned_questions/` | doc-derived |
+| `/organizations/{id}/venues/` | doc-derived |
+| `/organizations/{id}/discounts/` | doc-derived |
+| `/organizations/{id}/ticket_groups/` | doc-derived |
+| `/organizations/{id}/webhooks/` | doc-derived |
+| `/organizations/{id}/reports/{sales,attendees}/` | doc-derived; `start_date`/`end_date`/`event_status`/`group_by` |
+| `/orders/{id}/` | doc-derived |
+| `/venues/{id}/` `/venues/{id}/events/` | doc-derived |
+| `/organizers/{id}/` `/organizers/{id}/events/` | doc-derived |
+| `/series/{id}/events/` | doc-derived |
+| `/users/{id}/` | doc-derived |
 | `/categories/` `/subcategories/` `/formats/` | categories live-verified (103=Music, 101=Business, 110=Food & Drink) |
+| `/system/timezones/` `/countries/` `/regions/` | doc-derived; note timezones sits under `/system/`, the others at the root |
 
 "Live-verified" = exercised against the session-authed www-host proxy of the
 same v3 API (see below); the eventbriteapi.com host itself was verified for
-reachability + error shape (no token was configured at build time).
+reachability + error shape.
+
+**Verification debt (2026-07-30).** Everything marked doc-derived above was
+written from Eventbrite's published docs and has NOT been exercised. A token
+was supplied but rejected — `/users/me/` returned the standard
+`{"status_code":401,"error":"INVALID_AUTH"}` for both the `Authorization:
+Bearer` header and the legacy `?token=` param, identically to a known-bogus
+value, so the request shape is fine and the credential is not. The browser
+bridge was simultaneously unpaired, closing the www-proxy fallback. Re-capture
+these against a working token and update this table before trusting the shapes.
 
 ## Surface 2: consumer/discovery API — `https://www.eventbrite.com/api/v3/…`
 
@@ -73,6 +98,8 @@ request body (site sends; optional keys omitted freely):
 
 - `tags`: `EventbriteCategory/<id>` / `EventbriteSubCategory/<id>` /
   `EventbriteFormat/<id>` — ids match the documented API's reference lists.
+- `aggs`: facet buckets (`places_borough`, `places_neighborhood`) — present in
+  the captured body above; sent only when the caller asks for them.
 - `dates`: `current_future` always present; relative keyword appended.
   Explicit ranges via `date_range: {from, to}` (ISO dates).
 - The site's own calls append `?stable_id=<analytics uuid>` — omitted here.
@@ -106,6 +133,19 @@ unnecessary: the SSR browse page embeds the id. `GET /d/<slug>/events/`
 `"placeId":"<digits>"` in the raw bytes (verified against raw fetched bytes,
 ~700 KB page), plus `"currentPlace":"<Name>"`. The page's `__SERVER_DATA__`
 also embeds the full first page of results in `search_data`.
+
+`extractFirstPageEvents` (src/discovery.ts) brace-matches `__SERVER_DATA__` and
+reads `search_data.events.results`. **The exact nesting is UNVERIFIED** — it was
+written from the observation above, not from a re-capture, because the bridge
+was unpaired. It is fully guarded: any mismatch returns `undefined` and the
+caller simply searches normally, so a wrong guess costs a saved round-trip, not
+correctness. Confirm the path on the next capture.
+
+Free-text locations are turned into candidate slugs client-side
+(`slugCandidates`) — `'Charlotte, NC'` and `'Charlotte, North Carolina'` both
+yield `nc--charlotte`, non-US qualifiers become `<country>--<city>`. A bare city
+yields NO candidates by design: resolving "Portland" or "Springfield" would mean
+guessing a region, and this repo never guesses ids.
 
 ### Analytics endpoints — do not call
 

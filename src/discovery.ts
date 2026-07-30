@@ -34,9 +34,11 @@ export interface SearchParams {
   onlineEventsOnly?: boolean;
   page?: number;
   pageSize?: number;
+  /** Facet buckets to aggregate, e.g. ['places_borough', 'places_neighborhood']. */
+  aggs?: string[];
 }
 
-interface DestinationSearchBody {
+export interface DestinationSearchBody {
   browse_surface: 'search';
   event_search: Record<string, unknown>;
   'expand.destination_event': string[];
@@ -46,6 +48,8 @@ export interface ResolvedPlace {
   placeId: string;
   name: string | null;
   slug: string;
+  /** Page 1 of browse results, harvested from the SSR page when available. */
+  firstPage?: CompactEvent[];
 }
 
 /** Compact projection of a destination event for browse/rank use. */
@@ -63,6 +67,68 @@ export interface CompactEvent {
   organizer?: string;
   summary?: string;
   url?: string;
+}
+
+const US_STATES: Record<string, string> = {
+  alabama: 'al', alaska: 'ak', arizona: 'az', arkansas: 'ar', california: 'ca',
+  colorado: 'co', connecticut: 'ct', delaware: 'de', florida: 'fl', georgia: 'ga',
+  hawaii: 'hi', idaho: 'id', illinois: 'il', indiana: 'in', iowa: 'ia',
+  kansas: 'ks', kentucky: 'ky', louisiana: 'la', maine: 'me', maryland: 'md',
+  massachusetts: 'ma', michigan: 'mi', minnesota: 'mn', mississippi: 'ms',
+  missouri: 'mo', montana: 'mt', nebraska: 'ne', nevada: 'nv',
+  'new-hampshire': 'nh', 'new-jersey': 'nj', 'new-mexico': 'nm', 'new-york': 'ny',
+  'north-carolina': 'nc', 'north-dakota': 'nd', ohio: 'oh', oklahoma: 'ok',
+  oregon: 'or', pennsylvania: 'pa', 'rhode-island': 'ri', 'south-carolina': 'sc',
+  'south-dakota': 'sd', tennessee: 'tn', texas: 'tx', utah: 'ut', vermont: 'vt',
+  virginia: 'va', washington: 'wa', 'west-virginia': 'wv', wisconsin: 'wi',
+  wyoming: 'wy', 'district-of-columbia': 'dc',
+};
+
+const US_STATE_CODES = new Set(Object.values(US_STATES));
+
+/** Lowercase, drop punctuation, collapse whitespace to single hyphens. */
+function normalizeSegment(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[.'’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export const SLUG_RE = /^[a-z0-9-]+--[a-z0-9-]+$/;
+
+/**
+ * Turn a human location into candidate browse slugs for `resolvePlace`.
+ *
+ * Eventbrite browse slugs are `<region>--<city>`, where region is a US state
+ * abbreviation (`nc--charlotte`) or a country name (`germany--berlin`). An
+ * already-valid slug is returned untouched.
+ *
+ * A bare city with no qualifier returns NO candidates on purpose: "Springfield"
+ * or "Portland" cannot be resolved to a region without guessing, and guessing
+ * an id is exactly what this repo forbids. Callers should ask instead.
+ */
+export function slugCandidates(input: string): string[] {
+  const raw = input.trim();
+  if (SLUG_RE.test(raw)) return [raw];
+
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return [];
+
+  const city = normalizeSegment(parts[0]);
+  const qualifier = normalizeSegment(parts.slice(1).join('-'));
+  if (!city || !qualifier) return [];
+
+  const candidates: string[] = [];
+  if (US_STATE_CODES.has(qualifier)) {
+    candidates.push(`${qualifier}--${city}`);
+  } else if (US_STATES[qualifier]) {
+    candidates.push(`${US_STATES[qualifier]}--${city}`);
+  } else {
+    // Anything else is treated as a country (germany--berlin, ireland--dublin).
+    candidates.push(`${qualifier}--${city}`);
+  }
+  return candidates;
 }
 
 /** Build the search POST body exactly as the site sends it. */
@@ -91,6 +157,9 @@ export function buildSearchBody(params: SearchParams): DestinationSearchBody {
   if (tags.length > 0) es.tags = tags;
   if (params.price) es.price = params.price;
   if (params.onlineEventsOnly !== undefined) es.online_events_only = params.onlineEventsOnly;
+  // Facet buckets (places_borough / places_neighborhood). The site sends these
+  // alongside a normal query; omitted entirely when not asked for.
+  if (params.aggs && params.aggs.length > 0) es.aggs = [...params.aggs];
   return {
     browse_surface: 'search',
     event_search: es,
@@ -224,6 +293,91 @@ export class DiscoveryClient {
       throw new BotWallError(path, 60);
     }
     const nameMatch = body.match(/"currentPlace":"([^"]+)"/);
-    return { placeId: m[1], name: nameMatch ? nameMatch[1] : null, slug };
+    const place: ResolvedPlace = {
+      placeId: m[1],
+      name: nameMatch ? nameMatch[1] : null,
+      slug,
+    };
+    // The SSR page already carries page 1 of results; harvesting it saves a
+    // whole CSRF'd search POST. Best-effort by design — if the embedded shape
+    // ever drifts, callers simply get no firstPage and search normally.
+    const firstPage = extractFirstPageEvents(body);
+    if (firstPage) place.firstPage = firstPage;
+    return place;
+  }
+
+  /**
+   * Resolve a human location ('Charlotte, NC', 'Berlin, Germany') or a raw
+   * browse slug to a place id, trying each candidate slug in turn.
+   */
+  async resolveLocation(input: string): Promise<ResolvedPlace> {
+    const candidates = slugCandidates(input);
+    if (candidates.length === 0) {
+      throw new McpToolError(`Could not turn '${input}' into an Eventbrite browse slug.`, {
+        hint: "Include a state or country — 'Charlotte, NC' or 'Berlin, Germany' — or pass a slug directly ('nc--charlotte').",
+      });
+    }
+    let lastError: unknown;
+    for (const slug of candidates) {
+      try {
+        return await this.resolvePlace(slug);
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new McpToolError(`Could not resolve '${input}'.`);
+  }
+}
+
+/**
+ * Pull page 1 of browse results out of an SSR page's `__SERVER_DATA__`.
+ *
+ * UNVERIFIED against live bytes (the browser bridge was unpaired when this was
+ * written) — the nesting below follows docs/EVENTBRITE-API.md's note that the
+ * SSR page embeds `search_data`. Every step is guarded and any mismatch yields
+ * `undefined`, so a wrong guess degrades to "search normally", never an error.
+ */
+export function extractFirstPageEvents(body: string): CompactEvent[] | undefined {
+  const marker = body.indexOf('__SERVER_DATA__');
+  if (marker === -1) return undefined;
+  const start = body.indexOf('{', marker);
+  if (start === -1) return undefined;
+
+  // Brace-match to find the end of the JSON object (string-aware).
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let end = -1;
+  for (let i = start; i < body.length; i++) {
+    const ch = body[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  if (end === -1) return undefined;
+
+  try {
+    const parsed = JSON.parse(body.slice(start, end)) as Record<string, unknown>;
+    const searchData = parsed.search_data as Record<string, unknown> | undefined;
+    const events = searchData?.events as Record<string, unknown> | undefined;
+    const results = events?.results;
+    if (!Array.isArray(results)) return undefined;
+    return results.map((r) => toCompactEvent(r as Record<string, unknown>));
+  } catch {
+    return undefined;
   }
 }

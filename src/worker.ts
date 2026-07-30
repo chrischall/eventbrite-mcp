@@ -4,6 +4,7 @@ import { EventbriteClient } from './client.js';
 import { eventbriteAuth, type EventbriteProps } from './eventbrite-auth.js';
 import { registerAccountTools } from './tools/account.js';
 import { registerEventTools } from './tools/events.js';
+import { registerLookupTools } from './tools/lookup.js';
 
 // The Cloudflare remote-connector entrypoint: wires the token-API tool
 // registrars (the same ones `src/index.ts` uses) into
@@ -30,6 +31,7 @@ const { Agent, handler } = createConnector<EventbriteProps, EventbriteClient>({
   tools: [
     (server, client) => registerAccountTools(server, { client }),
     (server, client) => registerEventTools(server, { client }),
+    (server, client) => registerLookupTools(server, { client }),
   ],
 });
 

@@ -23,17 +23,17 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
     'eb_resolve_place',
     {
       description:
-        "Resolve a location to Eventbrite's internal place id for eb_search_events. Takes a browse slug: '<state>--<city>' for US (nc--charlotte, ny--new-york) or '<country>--<city>' elsewhere (germany--berlin). Returns {placeId, name, slug}.",
+        "Resolve a location to Eventbrite's internal place id for eb_search_events. Accepts a plain location ('Charlotte, NC', 'Berlin, Germany') or a browse slug ('nc--charlotte'). A city on its own is rejected — include the state or country. Returns {placeId, name, slug} plus firstPage, page 1 of browse results harvested for free from the same fetch.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
-        slug: z
+        location: z
           .string()
-          .regex(/^[a-z0-9-]+--[a-z0-9-]+$/, "Expected '<region>--<city>' in lowercase-hyphen form")
-          .describe("Browse slug, e.g. 'nc--charlotte' or 'germany--berlin'"),
+          .min(2)
+          .describe("Location, e.g. 'Charlotte, NC', 'Berlin, Germany', or the slug 'nc--charlotte'"),
       },
     },
-    async ({ slug }) => {
-      const place = await discovery.resolvePlace(slug);
+    async ({ location }) => {
+      const place = await discovery.resolveLocation(location);
       return textResult(place);
     }
   );
@@ -63,6 +63,10 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
         online_events_only: z.boolean().optional(),
         page: z.number().int().positive().optional().describe('Page number (default 1)'),
         page_size: z.number().int().positive().max(50).optional().describe('Results per page (default 20)'),
+        aggs: z
+          .array(z.enum(['places_borough', 'places_neighborhood']))
+          .optional()
+          .describe('Facet buckets to aggregate alongside results'),
         compact: z
           .boolean()
           .optional()
@@ -88,6 +92,7 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
         onlineEventsOnly: args.online_events_only,
         page: args.page,
         pageSize: args.page_size,
+        aggs: args.aggs,
       });
       if (args.compact) {
         const results = data.events?.results;

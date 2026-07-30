@@ -4,6 +4,7 @@ import { createTestHarness } from '@chrischall/mcp-utils/test';
 import { EventbriteClient } from '../src/client.js';
 import { registerAccountTools } from '../src/tools/account.js';
 import { registerEventTools } from '../src/tools/events.js';
+import { registerLookupTools } from '../src/tools/lookup.js';
 
 // Handshake + tool-surface test for the Eventbrite Cloudflare remote
 // connector, run inside the real Workers runtime (Miniflare) via
@@ -58,6 +59,7 @@ describe('Eventbrite Cloudflare connector — tool surface', () => {
     const harness = await createTestHarness((server) => {
       registerAccountTools(server, { client });
       registerEventTools(server, { client });
+      registerLookupTools(server, { client });
     });
 
     try {
@@ -70,10 +72,27 @@ describe('Eventbrite Cloudflare connector — tool surface', () => {
           'eb_org_events',
           'eb_org_attendees',
           'eb_org_orders',
+          'eb_org_venues',
+          'eb_org_discounts',
+          'eb_org_ticket_groups',
+          'eb_org_webhooks',
+          'eb_org_report',
           'eb_event',
           'eb_ticket_classes',
+          'eb_ticket_class',
           'eb_event_description',
+          'eb_event_attendees',
+          'eb_event_attendee',
+          'eb_event_orders',
+          'eb_event_questions',
           'eb_reference',
+          'eb_order',
+          'eb_venue',
+          'eb_venue_events',
+          'eb_organizer',
+          'eb_organizer_events',
+          'eb_series_events',
+          'eb_user',
         ].sort()
       );
       // Discovery tools need the browser bridge and must never appear here.
