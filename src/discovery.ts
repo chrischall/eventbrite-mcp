@@ -86,6 +86,19 @@ const US_STATES: Record<string, string> = {
 
 const US_STATE_CODES = new Set(Object.values(US_STATES));
 
+/** Country-level markers for the US: valid English, but never a valid slug. */
+const US_COUNTRY_MARKERS = new Set(['us', 'usa', 'united-states', 'united-states-of-america']);
+
+/** Common abbreviations for countries whose slug uses the full name. */
+const COUNTRY_ALIASES: Record<string, string> = {
+  uk: 'united-kingdom',
+  gb: 'united-kingdom',
+  'great-britain': 'united-kingdom',
+  uae: 'united-arab-emirates',
+  nz: 'new-zealand',
+  roi: 'ireland',
+};
+
 /** Lowercase, drop punctuation, collapse whitespace to single hyphens. */
 function normalizeSegment(s: string): string {
   return s
@@ -116,17 +129,32 @@ export function slugCandidates(input: string): string[] {
   if (parts.length < 2) return [];
 
   const city = normalizeSegment(parts[0]);
-  const qualifier = normalizeSegment(parts.slice(1).join('-'));
-  if (!city || !qualifier) return [];
+  if (!city) return [];
 
+  // Each comma-separated part after the city is its own candidate qualifier.
+  // Folding them together would produce 'nc-usa--charlotte' for
+  // 'Charlotte, NC, USA'; resolveLocation already tries candidates in turn.
   const candidates: string[] = [];
-  if (US_STATE_CODES.has(qualifier)) {
-    candidates.push(`${qualifier}--${city}`);
-  } else if (US_STATES[qualifier]) {
-    candidates.push(`${US_STATES[qualifier]}--${city}`);
-  } else {
-    // Anything else is treated as a country (germany--berlin, ireland--dublin).
-    candidates.push(`${qualifier}--${city}`);
+  const push = (slug: string) => {
+    if (!candidates.includes(slug)) candidates.push(slug);
+  };
+
+  for (const part of parts.slice(1)) {
+    const q = normalizeSegment(part);
+    if (!q) continue;
+    if (US_STATE_CODES.has(q)) {
+      push(`${q}--${city}`);
+    } else if (US_STATES[q]) {
+      push(`${US_STATES[q]}--${city}`);
+    } else if (US_COUNTRY_MARKERS.has(q)) {
+      // US browse slugs are state-scoped — 'usa--charlotte' can never resolve.
+      continue;
+    } else {
+      // Anything else is a country (germany--berlin, ireland--dublin).
+      const alias = COUNTRY_ALIASES[q];
+      if (alias) push(`${alias}--${city}`);
+      push(`${q}--${city}`);
+    }
   }
   return candidates;
 }

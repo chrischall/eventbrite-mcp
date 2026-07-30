@@ -26,38 +26,46 @@ Endpoints used by this MCP (all GET):
 | `/organizations/{id}/attendees/?status=…` | organizer attendees |
 | `/organizations/{id}/orders/` | organizer orders |
 | `/events/{id}/?expand=venue,organizer,ticket_availability` | ANY public event — live-verified |
-| `/events/{id}/ticket_classes/` | doc-derived |
+| `/events/{id}/ticket_classes/` | live-verified — `{ticket_classes[], pagination}` |
 | `/events/{id}/ticket_classes/{tcid}/` | doc-derived |
-| `/events/{id}/description/` | full HTML description; doc-derived |
-| `/events/{id}/attendees/` `?status=&changed_since=` | doc-derived |
+| `/events/{id}/description/` | live-verified — `{description}` |
+| `/events/{id}/attendees/` `?status=&changed_since=` | path confirmed; 403 `NOT_AUTHORIZED` on a non-owned event |
 | `/events/{id}/attendees/{aid}/` | doc-derived |
-| `/events/{id}/orders/` `?status=&changed_since=` | doc-derived |
-| `/events/{id}/questions/` `/events/{id}/canned_questions/` | doc-derived |
-| `/organizations/{id}/venues/` | doc-derived |
-| `/organizations/{id}/discounts/` | doc-derived |
-| `/organizations/{id}/ticket_groups/` | doc-derived |
-| `/organizations/{id}/webhooks/` | doc-derived |
-| `/organizations/{id}/reports/{sales,attendees}/` | doc-derived; `start_date`/`end_date`/`event_status`/`group_by` |
-| `/orders/{id}/` | doc-derived |
-| `/venues/{id}/` `/venues/{id}/events/` | doc-derived |
-| `/organizers/{id}/` `/organizers/{id}/events/` | doc-derived |
-| `/series/{id}/events/` | doc-derived |
-| `/users/{id}/` | doc-derived |
-| `/categories/` `/subcategories/` `/formats/` | categories live-verified (103=Music, 101=Business, 110=Food & Drink) |
-| `/system/timezones/` `/countries/` `/regions/` | doc-derived; note timezones sits under `/system/`, the others at the root |
+| `/events/{id}/orders/` `?status=&changed_since=` | path confirmed; 403 `NOT_AUTHORIZED` on a non-owned event |
+| `/events/{id}/questions/` | live-verified — `{questions[], pagination}` |
+| `/events/{id}/canned_questions/` | live-verified — 6 standard questions |
+| `/organizations/{id}/venues/` | UNVERIFIED — test account has no organizations |
+| `/organizations/{id}/discounts/` | UNVERIFIED — as above |
+| `/organizations/{id}/ticket_groups/` | UNVERIFIED — as above |
+| `/organizations/{id}/webhooks/` | UNVERIFIED — as above |
+| `/organizations/{id}/reports/{sales,attendees}/` | UNVERIFIED — as above; `start_date`/`end_date`/`event_status`/`group_by` |
+| `/orders/{id}/` `?expand=attendees,event` | live-verified — expand honoured |
+| `/venues/{id}/` `/venues/{id}/events/` | live-verified — both 200 |
+| `/organizers/{id}/` `/organizers/{id}/events/` | live-verified — both 200 |
+| `/series/{id}/events/` | live-verified — `{pagination, events}` |
+| `/users/{id}/` | live-verified |
+| `/categories/` `/subcategories/` `/formats/` | live-verified (21 / 50 / 20 entries; 103=Music, 101=Business, 110=Food & Drink) |
+| `/system/timezones/` `/system/countries/` `/system/regions/` | live-verified — **all three sit under `/system/`** |
 
-"Live-verified" = exercised against the session-authed www-host proxy of the
-same v3 API (see below); the eventbriteapi.com host itself was verified for
-reachability + error shape.
+"Live-verified" = a real 200 from `eventbriteapi.com/v3` with the shape noted,
+exercised 2026-07-30 with a private token.
 
-**Verification debt (2026-07-30).** Everything marked doc-derived above was
-written from Eventbrite's published docs and has NOT been exercised. A token
-was supplied but rejected — `/users/me/` returned the standard
-`{"status_code":401,"error":"INVALID_AUTH"}` for both the `Authorization:
-Bearer` header and the legacy `?token=` param, identically to a known-bogus
-value, so the request shape is fine and the credential is not. The browser
-bridge was simultaneously unpaired, closing the www-proxy fallback. Re-capture
-these against a working token and update this table before trusting the shapes.
+**`/countries/` and `/regions/` do not exist** — both 404. Only the
+`/system/`-prefixed forms resolve, exactly like `/system/timezones/`. An earlier
+revision of `eb_reference` offered root-level `countries`/`regions` kinds that
+could never succeed; fixed after live probing.
+
+**Remaining verification debt.** The org-scoped endpoints are untested because
+the verifying account belongs to no organizations — there was no id to call
+them with. `/events/{id}/attendees/` and `/events/{id}/orders/` answered 403
+`NOT_AUTHORIZED` rather than 404, which confirms the paths exist but requires an
+event the caller organizes. Re-run against an organizer account to close these.
+
+Note also that the API key is **not** a bearer credential: it returns
+`{"status_code":401,"error":"INVALID_AUTH"}` on every endpoint. The public token
+authenticates (200 on `/categories/`) but is not user-scoped — `/users/me/`
+answers 403 `NOT_AUTHORIZED`. Only the private token from the API Keys page
+reaches account data.
 
 ## Surface 2: consumer/discovery API — `https://www.eventbrite.com/api/v3/…`
 
