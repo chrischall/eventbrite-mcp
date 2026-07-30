@@ -15,7 +15,7 @@
   // ONLY the id here — keep the binding name OAUTH_KV (the provider resolves
   // that literal name; adopting the create command's suggested binding breaks
   // login). Never share a namespace with another connector.
-  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "REPLACE_WITH_OAUTH_KV_ID" }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "6fac88049c6348359778e44a89108982" }],
   // Production custom domain (matches the fleet's connector.<svc>.nullnet.app
   // scheme). The zone must be in the deploying account; remove this route to
   // deploy to *.workers.dev only.
