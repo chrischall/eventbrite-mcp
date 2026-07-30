@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "eventbrite": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
+      "env": {
+        "EVENTBRITE_TOKEN": "${EVENTBRITE_TOKEN}"
+      }
+    }
+  }
+}

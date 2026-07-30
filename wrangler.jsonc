@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "eventbrite-connector",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Eventbrite is stateless — only the per-session MCP agent Durable Object is
+  // declared (no cache DO).
+  "durable_objects": {
+    "bindings": [{ "name": "MCP_OBJECT", "class_name": "EventbriteMcpAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EventbriteMcpAgent"] }],
+  // eventbrite-connector's own OAuth token store. Create it in the deploying
+  // account (wrangler kv namespace create eventbrite-connector-oauth) and paste
+  // ONLY the id here — keep the binding name OAUTH_KV (the provider resolves
+  // that literal name; adopting the create command's suggested binding breaks
+  // login). Never share a namespace with another connector.
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "REPLACE_WITH_OAUTH_KV_ID" }],
+  // Production custom domain (matches the fleet's connector.<svc>.nullnet.app
+  // scheme). The zone must be in the deploying account; remove this route to
+  // deploy to *.workers.dev only.
+  "routes": [{ "pattern": "connector.eventbrite.nullnet.app", "custom_domain": true }],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  }
+}

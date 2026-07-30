@@ -1,0 +1,21 @@
+{
+  "name": "eventbrite-mcp",
+  "displayName": "Eventbrite",
+  "version": "0.0.0",
+  "description": "MCP server for Eventbrite — your tickets and orders, organizer data, and public event discovery",
+  "author": {
+    "name": "Chris Hall",
+    "email": "chris.c.hall@gmail.com"
+  },
+  "homepage": "https://github.com/chrischall/eventbrite-mcp",
+  "repository": "https://github.com/chrischall/eventbrite-mcp",
+  "license": "MIT",
+  "keywords": [
+    "eventbrite",
+    "events",
+    "tickets",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcp": "./.mcp.json"
+}

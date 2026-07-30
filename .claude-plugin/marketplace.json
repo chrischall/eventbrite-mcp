@@ -1,0 +1,34 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "eventbrite-mcp",
+  "owner": {
+    "name": "Chris Hall",
+    "email": "chris.c.hall@gmail.com"
+  },
+  "metadata": {
+    "description": "MCP server for Eventbrite — your tickets and orders, organizer data, and public event discovery",
+    "version": "0.0.0"
+  },
+  "plugins": [
+    {
+      "name": "eventbrite-mcp",
+      "displayName": "Eventbrite",
+      "source": "./",
+      "description": "MCP server for Eventbrite — tickets, orders, organizer data, and public event search. Account tools use a personal API token; discovery search routes through the user's signed-in eventbrite.com tab via the fetchproxy bridge, reusing their authenticated session.",
+      "version": "0.0.0",
+      "author": {
+        "name": "Chris Hall"
+      },
+      "homepage": "https://github.com/chrischall/eventbrite-mcp",
+      "repository": "https://github.com/chrischall/eventbrite-mcp",
+      "license": "MIT",
+      "keywords": [
+        "eventbrite",
+        "events",
+        "tickets",
+        "mcp"
+      ],
+      "category": "productivity"
+    }
+  ]
+}

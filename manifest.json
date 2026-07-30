@@ -1,0 +1,70 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/dxt/main/dist/mcpb-manifest.schema.json",
+  "manifest_version": "0.3",
+  "name": "eventbrite-mcp",
+  "display_name": "Eventbrite",
+  "version": "0.0.0",
+  "description": "Eventbrite for Claude — your tickets and orders, organizer data, and public event discovery",
+  "author": {
+    "name": "Chris Chall",
+    "email": "chris.c.hall@gmail.com",
+    "url": "https://github.com/chrischall"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chrischall/eventbrite-mcp"
+  },
+  "homepage": "https://github.com/chrischall/eventbrite-mcp",
+  "support": "https://github.com/chrischall/eventbrite-mcp/issues",
+  "license": "MIT",
+  "keywords": [
+    "eventbrite",
+    "events",
+    "tickets",
+    "discovery",
+    "orders"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/bundle.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/bundle.js"
+      ],
+      "env": {
+        "EVENTBRITE_TOKEN": "${user_config.eventbrite_token}"
+      }
+    }
+  },
+  "user_config": {
+    "eventbrite_token": {
+      "type": "string",
+      "title": "Eventbrite private token",
+      "description": "Personal OAuth token from eventbrite.com/platform/api-keys (needed for account/organizer tools; discovery tools use the browser bridge instead)",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "runtimes": {
+      "node": ">=22.5"
+    }
+  },
+  "tools": [
+    { "name": "eb_me", "description": "Get the authenticated user's profile" },
+    { "name": "eb_my_orders", "description": "List your ticket orders with events" },
+    { "name": "eb_my_organizations", "description": "List organizations you belong to" },
+    { "name": "eb_org_events", "description": "List an organization's events" },
+    { "name": "eb_org_attendees", "description": "List an organization's attendees" },
+    { "name": "eb_org_orders", "description": "List an organization's orders" },
+    { "name": "eb_event", "description": "Get any public event by id" },
+    { "name": "eb_ticket_classes", "description": "List an event's ticket classes" },
+    { "name": "eb_event_description", "description": "Get an event's full description" },
+    { "name": "eb_reference", "description": "List categories, subcategories, or formats" },
+    { "name": "eb_resolve_place", "description": "Resolve a location slug to a place id" },
+    { "name": "eb_search_events", "description": "Search public events (via browser bridge)" },
+    { "name": "eb_event_details", "description": "Batch public event details (via browser bridge)" },
+    { "name": "eb_healthcheck", "description": "Verify the browser bridge end-to-end" }
+  ]
+}
