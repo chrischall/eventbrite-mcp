@@ -15,12 +15,16 @@ import { DiscoveryClient } from './discovery.js';
 // (`src/eventbrite-auth.ts`), and `buildClient` mints a per-user
 // `EventbriteClient` so concurrent sessions never share a token.
 //
-// REDUCED connector, by design: the discovery tools
-// (eb_search_events / eb_resolve_place / eb_event_details / eb_healthcheck)
-// are EXCLUDED — they require the fetchproxy browser bridge (Transporter
-// extension + a signed-in tab), which cannot exist in a Worker. Keeping their
-// registrar out of this module also keeps `@fetchproxy/server` out of the
-// Worker bundle entirely. Do not add `registerDiscoveryTools` here.
+// FULL bearer-token surface, including discovery. Verified live 2026-07-30:
+// the documented host serves the consumer search at POST /destination/search/
+// and batch detail at GET /events/?event_ids=… with a plain bearer token — no
+// WAF, no CSRF, no browser — so discovery works here. `DiscoveryClient` is
+// built with a null transport: there is no fetchproxy bridge in a Worker and
+// therefore no fallback route.
+//
+// `eb_healthcheck` is the one discovery tool still excluded: it diagnoses the
+// BRIDGE, so with no bridge there is nothing for it to report on.
+// `registerDiscoveryTools` skips it when `transport` is null.
 //
 // Eventbrite is STATELESS — no local cache, so only the per-session MCP agent
 // Durable Object is declared (no cache DO).

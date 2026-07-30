@@ -10,10 +10,64 @@ import { McpToolError, BotWallError, parseCookieHeader } from '@chrischall/mcp-u
 import type { EventbriteTransport, FetchResult } from './transport.js';
 import type { EventbriteClient } from './client.js';
 
+/**
+ * The two surfaces name expansions differently. Verified live 2026-07-30:
+ * `expand=venue,organizer,ticket_availability` adds those keys on the
+ * documented host, while `expand=primary_venue` is silently ignored there.
+ * Destination-style names are translated; names with no documented equivalent
+ * (image, event_sales_status) are dropped rather than sent uselessly.
+ */
+const DESTINATION_TO_DOC_EXPANSION: Record<string, string | null> = {
+  primary_venue: 'venue',
+  primary_organizer: 'organizer',
+  ticket_availability: 'ticket_availability',
+  image: null,
+  event_sales_status: null,
+  saves: null,
+  public_collections: null,
+};
+
+/** Map destination-style expansion names onto the documented API's vocabulary. */
+export function toDocExpansions(expand: string[]): string[] {
+  const out: string[] = [];
+  for (const e of expand) {
+    const mapped = Object.prototype.hasOwnProperty.call(DESTINATION_TO_DOC_EXPANSION, e)
+      ? DESTINATION_TO_DOC_EXPANSION[e]
+      : e; // unknown names pass through untouched
+    if (mapped && !out.includes(mapped)) out.push(mapped);
+  }
+  return out;
+}
+
 /** Browse pages are plain SSR HTML — reachable server-side, no bridge needed. */
 const BROWSE_ORIGIN = 'https://www.eventbrite.com';
 const BROWSE_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
+/** Match the API client's timeout so a stalled connection cannot hang a call. */
+const BROWSE_TIMEOUT_MS = 30_000;
+
+/** A 404 is a real answer; a 200 is only usable if it actually carries a placeId. */
+function isUsableBrowsePage(result: FetchResult): boolean {
+  if (result.status === 404) return true;
+  if (result.status !== 200) return false;
+  return typeof result.body === 'string' && PLACE_ID_RE.test(result.body);
+}
+
+/** `fetch` with an AbortController deadline; called directly for workerd. */
+async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, {
+      headers: { 'User-Agent': BROWSE_UA, Accept: 'text/html' },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export const PLACE_ID_RE = /"placeId":"(\d+)"/;
 
 /** Expansions the site itself requests for search results / event batches. */
 export const DEFAULT_EVENT_EXPANSIONS = [
@@ -341,11 +395,12 @@ export class DiscoveryClient {
     if (this.api) {
       try {
         // Verified live 2026-07-30: the documented host serves the same batch
-        // envelope at /events/?event_ids=… with no bridge involved.
-        return await this.api.request<T>(
-          'GET',
-          `/events/?event_ids=${eventIds.map(encodeURIComponent).join(',')}`
-        );
+        // envelope at /events/?event_ids=… with no bridge involved, and honours
+        // `expand` in ITS vocabulary (see toDocExpansions).
+        const params = new URLSearchParams({ event_ids: eventIds.join(',') });
+        const docExpand = toDocExpansions(expand);
+        if (docExpand.length > 0) params.set('expand', docExpand.join(','));
+        return await this.api.request<T>('GET', `/events/?${params}`);
       } catch (e) {
         if (!this.transport) throw e;
         console.error(
@@ -366,27 +421,39 @@ export class DiscoveryClient {
   /**
    * Fetch an SSR browse page. Verified live 2026-07-30: `/d/<slug>/events/`
    * answers 200 with the full ~800 KB page to a plain server-side GET carrying
-   * a browser User-Agent — no bridge, no session. The bridge stays as a
-   * fallback for when the direct fetch is blocked.
+   * a browser User-Agent — no bridge, no session.
+   *
+   * The bridge is the fallback for ANY unusable outcome, not just a thrown
+   * error: the WAF blocks with a 403/429 or a 200 interstitial, and those
+   * arrive as perfectly ordinary responses. Falling back only on a throw would
+   * hard-fail exactly the case the bridge exists to rescue.
    *
    * `fetch` is called directly rather than stored: a detached reference throws
    * `Illegal invocation` in workerd (fleet gotcha).
    */
   private async fetchBrowsePage(path: string): Promise<FetchResult> {
+    const url = `${BROWSE_ORIGIN}${path}`;
+    let direct: FetchResult | null = null;
+    let failure = '';
     try {
-      const res = await fetch(`${BROWSE_ORIGIN}${path}`, {
-        headers: { 'User-Agent': BROWSE_UA, Accept: 'text/html' },
-      });
-      const body = await res.text();
-      return { status: res.status, body, url: `${BROWSE_ORIGIN}${path}` };
+      const res = await fetchWithTimeout(url, BROWSE_TIMEOUT_MS);
+      direct = { status: res.status, body: await res.text(), url };
+      if (isUsableBrowsePage(direct)) return direct;
+      failure = `HTTP ${direct.status} without a placeId (WAF block or drift)`;
     } catch (e) {
-      if (!this.transport) throw e;
-      console.error(
-        '[eventbrite-mcp] direct browse fetch failed, falling back to the browser bridge:',
-        e instanceof Error ? e.message : String(e)
-      );
-      return this.transport.fetch({ path, method: 'GET' });
+      failure = e instanceof Error ? e.message : String(e);
     }
+
+    if (!this.transport) {
+      // Nothing to fall back to: return the direct response so resolvePlace
+      // renders its own 404 / bot-wall error, or rethrow if there was none.
+      if (direct) return direct;
+      throw new McpToolError(`Could not fetch ${url}: ${failure}`);
+    }
+    console.error(
+      `[eventbrite-mcp] direct browse fetch unusable (${failure}); falling back to the browser bridge`
+    );
+    return this.transport.fetch({ path, method: 'GET' });
   }
 
   /**
@@ -404,7 +471,7 @@ export class DiscoveryClient {
       });
     }
     const body = typeof result.body === 'string' ? result.body : '';
-    const m = body.match(/"placeId":"(\d+)"/);
+    const m = body.match(PLACE_ID_RE);
     if (result.status !== 200 || !m) {
       throw new BotWallError(path, 60);
     }
@@ -415,14 +482,15 @@ export class DiscoveryClient {
       slug,
     };
     // The same fetch already carries curated browse shelves and place context;
-    // harvesting them is free. Best-effort — drift yields nothing extra.
+    // harvesting them is free. Parse the ~800 KB payload ONCE and read both out
+    // of it. Best-effort — drift yields nothing extra.
     const data = parseServerData(body);
     if (data) {
       if (typeof data.region === 'string') place.region = data.region;
       if (typeof data.country === 'string') place.country = data.country;
+      const shelves = shelvesFromServerData(data);
+      if (shelves) place.shelves = shelves;
     }
-    const shelves = extractBrowseShelves(body);
-    if (shelves) place.shelves = shelves;
     return place;
   }
 
@@ -477,7 +545,13 @@ export interface BrowseShelf {
  */
 export function extractBrowseShelves(body: string): BrowseShelf[] | undefined {
   const data = parseServerData(body);
-  if (!data) return undefined;
+  return data ? shelvesFromServerData(data) : undefined;
+}
+
+/** Project already-parsed `__SERVER_DATA__` into shelves (no re-parse). */
+export function shelvesFromServerData(
+  data: Record<string, unknown>
+): BrowseShelf[] | undefined {
   const buckets = data.buckets;
   if (!Array.isArray(buckets)) return undefined;
 
