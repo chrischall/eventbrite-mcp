@@ -6,6 +6,7 @@ import { DiscoveryClient } from './discovery.js';
 import { FetchproxyTransport } from './transport-fetchproxy.js';
 import { registerAccountTools } from './tools/account.js';
 import { registerEventTools } from './tools/events.js';
+import { registerLookupTools } from './tools/lookup.js';
 import { registerDiscoveryTools } from './tools/discovery.js';
 
 // Two surfaces, one server:
@@ -28,5 +29,5 @@ await runMcp({
   deps: { client, discovery, transport },
   banner:
     '[eventbrite-mcp] This project was developed and is maintained by AI (Claude Fable 5). Use at your own discretion.',
-  tools: [registerAccountTools, registerEventTools, registerDiscoveryTools],
+  tools: [registerAccountTools, registerEventTools, registerLookupTools, registerDiscoveryTools],
 });

@@ -11,7 +11,11 @@ function mockDeps() {
     resolvePlace: vi
       .fn()
       .mockResolvedValue({ placeId: '85981333', name: 'Charlotte', slug: 'nc--charlotte' }),
-  } as unknown as DiscoveryClient & Record<'search' | 'eventsByIds' | 'resolvePlace', ReturnType<typeof vi.fn>>;
+    resolveLocation: vi
+      .fn()
+      .mockResolvedValue({ placeId: '85981333', name: 'Charlotte', slug: 'nc--charlotte' }),
+  } as unknown as DiscoveryClient &
+    Record<'search' | 'eventsByIds' | 'resolvePlace' | 'resolveLocation', ReturnType<typeof vi.fn>>;
   const transport = {
     start: vi.fn(),
     close: vi.fn(),
@@ -32,19 +36,18 @@ describe('discovery tools', () => {
     harness = undefined;
   });
 
-  it('eb_resolve_place validates the slug shape and returns the resolution', async () => {
+  it('eb_resolve_place accepts free text and a raw slug alike', async () => {
     const deps = mockDeps();
     harness = await createTestHarness((server) => registerDiscoveryTools(server, deps));
-    const result = await harness.callTool('eb_resolve_place', { slug: 'nc--charlotte' });
+    const result = await harness.callTool('eb_resolve_place', { location: 'Charlotte, NC' });
     expect(parseToolResult(result)).toEqual({
       placeId: '85981333',
       name: 'Charlotte',
       slug: 'nc--charlotte',
     });
-    // A bare city (no `--`) is rejected by the schema before any network call.
-    const bad = await harness.callTool('eb_resolve_place', { slug: 'charlotte' });
-    expect(bad.isError).toBe(true);
-    expect(deps.discovery.resolvePlace).toHaveBeenCalledTimes(1);
+    await harness.callTool('eb_resolve_place', { location: 'nc--charlotte' });
+    expect(deps.discovery.resolveLocation).toHaveBeenCalledTimes(2);
+    expect(deps.discovery.resolveLocation).toHaveBeenLastCalledWith('nc--charlotte');
   });
 
   it('eb_search_events maps tool args onto SearchParams', async () => {

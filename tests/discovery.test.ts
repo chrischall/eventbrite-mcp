@@ -4,6 +4,8 @@ import {
   toCompactEvent,
   DiscoveryClient,
   DEFAULT_EVENT_EXPANSIONS,
+  slugCandidates,
+  extractFirstPageEvents,
 } from '../src/discovery.js';
 import type { EventbriteTransport } from '../src/transport.js';
 
@@ -231,5 +233,94 @@ describe('DiscoveryClient.resolvePlace', () => {
     });
     const client = new DiscoveryClient(transport);
     await expect(client.resolvePlace('co--denver')).rejects.toThrow(/anti-bot/i);
+  });
+});
+
+describe('buildSearchBody aggs', () => {
+  it('omits aggs entirely when none are requested', () => {
+    const body = buildSearchBody({ q: 'blues' });
+    expect(body.event_search).not.toHaveProperty('aggs');
+  });
+
+  it('passes requested aggregations through verbatim', () => {
+    const body = buildSearchBody({
+      q: 'blues',
+      aggs: ['places_borough', 'places_neighborhood'],
+    });
+    expect(body.event_search.aggs).toEqual(['places_borough', 'places_neighborhood']);
+  });
+});
+
+describe('slugCandidates', () => {
+  it('passes an already-valid slug through untouched, as the only candidate', () => {
+    expect(slugCandidates('nc--charlotte')).toEqual(['nc--charlotte']);
+  });
+
+  it("converts 'City, ST' to the US browse slug", () => {
+    expect(slugCandidates('Charlotte, NC')).toContain('nc--charlotte');
+  });
+
+  it('expands a full US state name to its abbreviation', () => {
+    expect(slugCandidates('Charlotte, North Carolina')).toContain('nc--charlotte');
+  });
+
+  it('hyphenates multi-word cities', () => {
+    expect(slugCandidates('New York, NY')).toContain('ny--new-york');
+  });
+
+  it("treats a non-US qualifier as a country: 'Berlin, Germany'", () => {
+    expect(slugCandidates('Berlin, Germany')).toContain('germany--berlin');
+  });
+
+  it('returns no candidates for a bare city with no qualifier', () => {
+    // Without a state/country there is nothing to build a slug from — the
+    // caller must ask the user rather than guess a region.
+    expect(slugCandidates('Charlotte')).toEqual([]);
+  });
+
+  it('lowercases and strips punctuation', () => {
+    expect(slugCandidates("St. Louis, MO")).toContain('mo--st-louis');
+  });
+});
+
+describe('extractFirstPageEvents', () => {
+  const ssr = (obj: unknown) =>
+    `<html><script>window.__SERVER_DATA__ = ${JSON.stringify(obj)};</script></html>`;
+
+  it('harvests and compacts the embedded first page', () => {
+    const events = extractFirstPageEvents(
+      ssr({
+        search_data: {
+          events: {
+            results: [{ id: '1', name: 'Blues Night', primary_venue: { name: 'The Evening Muse' } }],
+          },
+        },
+      })
+    );
+    expect(events).toHaveLength(1);
+    expect(events?.[0]).toMatchObject({ id: '1', name: 'Blues Night', venue: 'The Evening Muse' });
+  });
+
+  it('returns undefined when the marker is absent', () => {
+    expect(extractFirstPageEvents('<html>nothing here</html>')).toBeUndefined();
+  });
+
+  it('returns undefined when the embedded shape drifts, rather than throwing', () => {
+    expect(extractFirstPageEvents(ssr({ search_data: { events: {} } }))).toBeUndefined();
+    expect(extractFirstPageEvents(ssr({ unrelated: true }))).toBeUndefined();
+  });
+
+  it('survives braces inside strings without truncating the object', () => {
+    const events = extractFirstPageEvents(
+      ssr({
+        decoy: 'a } brace { inside a string',
+        search_data: { events: { results: [{ id: '9', name: 'Late {Set}' }] } },
+      })
+    );
+    expect(events).toEqual([{ id: '9', name: 'Late {Set}' }]);
+  });
+
+  it('returns undefined on malformed JSON instead of throwing', () => {
+    expect(extractFirstPageEvents('__SERVER_DATA__ = {"search_data": ')).toBeUndefined();
   });
 });

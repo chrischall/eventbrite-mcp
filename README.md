@@ -55,15 +55,29 @@ Claude Code (`.mcp.json`):
 | `eb_my_orders` | token | your tickets, event expanded |
 | `eb_my_organizations` | token | organizer orgs |
 | `eb_org_events` / `eb_org_attendees` / `eb_org_orders` | token | organizer data |
-| `eb_event` / `eb_ticket_classes` / `eb_event_description` | token | any public event by id |
-| `eb_reference` | token | categories / subcategories / formats |
-| `eb_resolve_place` | bridge | slug → place id (`nc--charlotte` → `85981333`) |
-| `eb_search_events` | bridge | the consumer search; `compact: true` for slim results |
+| `eb_org_venues` / `eb_org_discounts` / `eb_org_ticket_groups` / `eb_org_webhooks` | token | org-scoped collections |
+| `eb_org_report` | token | sales / attendees analytics, date-windowed |
+| `eb_event` / `eb_event_description` | token | any public event by id |
+| `eb_ticket_classes` / `eb_ticket_class` | token | an event's ticket types |
+| `eb_event_attendees` / `eb_event_attendee` | token | per-event attendees (`changed_since` polls incrementally) |
+| `eb_event_orders` | token | per-event orders |
+| `eb_event_questions` | token | registration questions (`canned: true` for the standard bank) |
+| `eb_order` | token | a single order by id |
+| `eb_venue` / `eb_venue_events` | token | venue detail and its events |
+| `eb_organizer` / `eb_organizer_events` | token | organizer profile and everything they run |
+| `eb_series_events` | token | occurrences of a recurring series |
+| `eb_user` | token | a public user profile |
+| `eb_reference` | token | categories / subcategories / formats / timezones / countries / regions |
+| `eb_resolve_place` | bridge | location → place id (`Charlotte, NC` → `85981333`), plus page 1 free |
+| `eb_search_events` | bridge | the consumer search; `compact: true` for slim results, `aggs` for facets |
 | `eb_event_details` | bridge | batch event detail, no token needed |
 | `eb_healthcheck` | bridge | end-to-end bridge diagnostics |
 
-Search flow: `eb_resolve_place {slug: "nc--charlotte"}` →
+Search flow: `eb_resolve_place {location: "Charlotte, NC"}` →
 `eb_search_events {q: "blues", place_id: "85981333", compact: true}`.
+
+`eb_resolve_place` also accepts a raw slug (`nc--charlotte`). A bare city with
+no state or country is rejected rather than guessed.
 
 ## Hosted connector
 

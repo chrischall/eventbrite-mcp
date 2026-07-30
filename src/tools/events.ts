@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { textResult } from '@chrischall/mcp-utils';
 import type { EventbriteClient } from '../client.js';
+import { enc, qs, schemaContinuation } from './params.js';
 
 /**
  * Event lookup + reference-data tools on the documented API. `eb_event` works
@@ -74,15 +75,131 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     'eb_reference',
     {
       description:
-        'List Eventbrite reference data: categories (103=Music, 101=Business, 110=Food & Drink, …), subcategories, or formats. The ids feed eb_search_events filters.',
+        'List Eventbrite reference data: categories (103=Music, 101=Business, 110=Food & Drink, …), subcategories, formats, timezones, countries or regions. Category/subcategory/format ids feed eb_search_events filters.',
       annotations: { readOnlyHint: true },
       inputSchema: {
-        kind: z.enum(['categories', 'subcategories', 'formats']).describe('Which list to fetch'),
+        kind: z
+          .enum(['categories', 'subcategories', 'formats', 'timezones', 'countries', 'regions'])
+          .describe('Which list to fetch'),
       },
     },
     async ({ kind }) => {
-      const data = await client.request('GET', `/${kind}/`);
+      // Timezones are the one list that hangs off /system/ rather than the root.
+      const path = kind === 'timezones' ? '/system/timezones/' : `/${kind}/`;
+      const data = await client.request('GET', path);
       return textResult(data);
     }
+  );
+
+  server.registerTool(
+    'eb_event_attendees',
+    {
+      description:
+        "List a single event's attendees (organizer-side; requires access to that event). Use changed_since to poll incrementally instead of re-reading the whole list.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        event_id: z.string().describe('Numeric event id'),
+        status: z.enum(['attending', 'not_attending', 'unpaid']).optional(),
+        changed_since: z
+          .string()
+          .optional()
+          .describe('ISO 8601 UTC timestamp — only attendees changed since then'),
+        continuation: schemaContinuation,
+      },
+    },
+    async ({ event_id, status, changed_since, continuation }) => {
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      if (changed_since) params.set('changed_since', changed_since);
+      if (continuation) params.set('continuation', continuation);
+      return textResult(
+        await client.request('GET', `/events/${enc(event_id)}/attendees/${qs(params)}`)
+      );
+    }
+  );
+
+  server.registerTool(
+    'eb_event_attendee',
+    {
+      description: "Get one attendee of an event by id (barcode, profile answers, check-in state).",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        event_id: z.string().describe('Numeric event id'),
+        attendee_id: z.string().describe('Numeric attendee id'),
+      },
+    },
+    async ({ event_id, attendee_id }) =>
+      textResult(
+        await client.request('GET', `/events/${enc(event_id)}/attendees/${enc(attendee_id)}/`)
+      )
+  );
+
+  server.registerTool(
+    'eb_event_orders',
+    {
+      description: "List a single event's orders (organizer-side; requires access to that event).",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        event_id: z.string().describe('Numeric event id'),
+        status: z.enum(['all', 'placed', 'refunded']).optional(),
+        changed_since: z
+          .string()
+          .optional()
+          .describe('ISO 8601 UTC timestamp — only orders changed since then'),
+        continuation: schemaContinuation,
+      },
+    },
+    async ({ event_id, status, changed_since, continuation }) => {
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      if (changed_since) params.set('changed_since', changed_since);
+      if (continuation) params.set('continuation', continuation);
+      return textResult(
+        await client.request('GET', `/events/${enc(event_id)}/orders/${qs(params)}`)
+      );
+    }
+  );
+
+  server.registerTool(
+    'eb_ticket_class',
+    {
+      description:
+        'Get one ticket class of an event by id. Use eb_ticket_classes to list them first.',
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        event_id: z.string().describe('Numeric event id'),
+        ticket_class_id: z.string().describe('Numeric ticket class id'),
+      },
+    },
+    async ({ event_id, ticket_class_id }) =>
+      textResult(
+        await client.request(
+          'GET',
+          `/events/${enc(event_id)}/ticket_classes/${enc(ticket_class_id)}/`
+        )
+      )
+  );
+
+  server.registerTool(
+    'eb_event_questions',
+    {
+      description:
+        "List the registration questions an event asks its buyers. Set canned=true for Eventbrite's standard question bank instead of the event's custom ones.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        event_id: z.string().describe('Numeric event id'),
+        canned: z
+          .boolean()
+          .optional()
+          .describe("Fetch the standard question bank instead of the event's custom questions"),
+      },
+    },
+    async ({ event_id, canned }) =>
+      textResult(
+        await client.request(
+          'GET',
+          `/events/${enc(event_id)}/${canned ? 'canned_questions' : 'questions'}/`
+        )
+      )
   );
 }

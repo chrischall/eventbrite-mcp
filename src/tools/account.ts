@@ -2,11 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { textResult } from '@chrischall/mcp-utils';
 import type { EventbriteClient } from '../client.js';
-
-const schemaContinuation = z
-  .string()
-  .optional()
-  .describe('Pagination continuation token from a previous response');
+import { enc, qs, schemaContinuation } from './params.js';
 
 /**
  * Account-side tools on the documented API (`eventbriteapi.com/v3`, bearer
@@ -63,8 +59,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     async ({ continuation }) => {
       const params = new URLSearchParams();
       if (continuation) params.set('continuation', continuation);
-      const qs = params.size > 0 ? `?${params}` : '';
-      const data = await client.request('GET', `/users/me/organizations/${qs}`);
+      const data = await client.request('GET', `/users/me/organizations/${qs(params)}`);
       return textResult(data);
     }
   );
@@ -91,10 +86,9 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       if (status) params.set('status', status);
       if (order_by) params.set('order_by', order_by);
       if (continuation) params.set('continuation', continuation);
-      const qs = params.size > 0 ? `?${params}` : '';
       const data = await client.request(
         'GET',
-        `/organizations/${encodeURIComponent(org_id)}/events/${qs}`
+        `/organizations/${enc(org_id)}/events/${qs(params)}`
       );
       return textResult(data);
     }
@@ -118,10 +112,9 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (continuation) params.set('continuation', continuation);
-      const qs = params.size > 0 ? `?${params}` : '';
       const data = await client.request(
         'GET',
-        `/organizations/${encodeURIComponent(org_id)}/attendees/${qs}`
+        `/organizations/${enc(org_id)}/attendees/${qs(params)}`
       );
       return textResult(data);
     }
@@ -140,12 +133,84 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     async ({ org_id, continuation }) => {
       const params = new URLSearchParams();
       if (continuation) params.set('continuation', continuation);
-      const qs = params.size > 0 ? `?${params}` : '';
       const data = await client.request(
         'GET',
-        `/organizations/${encodeURIComponent(org_id)}/orders/${qs}`
+        `/organizations/${enc(org_id)}/orders/${qs(params)}`
       );
       return textResult(data);
+    }
+  );
+
+  // Simple org-scoped collections: same shape, same pagination, different noun.
+  const orgCollections = [
+    ['eb_org_venues', 'venues', "List an organization's saved venues (name, address, geo)."],
+    [
+      'eb_org_discounts',
+      'discounts',
+      "List an organization's discount and access codes, including their usage limits.",
+    ],
+    [
+      'eb_org_ticket_groups',
+      'ticket_groups',
+      "List an organization's ticket groups (ticket classes bundled across events).",
+    ],
+    [
+      'eb_org_webhooks',
+      'webhooks',
+      "List an organization's registered webhooks and the actions they subscribe to.",
+    ],
+  ] as const;
+
+  for (const [name, noun, description] of orgCollections) {
+    server.registerTool(
+      name,
+      {
+        description,
+        annotations: { readOnlyHint: true },
+        inputSchema: {
+          org_id: z.string().describe('Organization id (from eb_my_organizations)'),
+          continuation: schemaContinuation,
+        },
+      },
+      async ({ org_id, continuation }) => {
+        const params = new URLSearchParams();
+        if (continuation) params.set('continuation', continuation);
+        return textResult(
+          await client.request('GET', `/organizations/${enc(org_id)}/${noun}/${qs(params)}`)
+        );
+      }
+    );
+  }
+
+  server.registerTool(
+    'eb_org_report',
+    {
+      description:
+        "Run an organization's sales or attendees report — the aggregated analytics behind its events, optionally windowed by date.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        org_id: z.string().describe('Organization id (from eb_my_organizations)'),
+        kind: z.enum(['sales', 'attendees']).describe('Which report to run'),
+        start_date: z.string().optional().describe('ISO date lower bound (YYYY-MM-DD)'),
+        end_date: z.string().optional().describe('ISO date upper bound (YYYY-MM-DD)'),
+        event_status: z.enum(['live', 'started', 'ended', 'completed', 'canceled']).optional(),
+        group_by: z
+          .string()
+          .optional()
+          .describe("Grouping dimension, e.g. 'event', 'day', 'ticket_class'"),
+        continuation: schemaContinuation,
+      },
+    },
+    async ({ org_id, kind, start_date, end_date, event_status, group_by, continuation }) => {
+      const params = new URLSearchParams();
+      if (start_date) params.set('start_date', start_date);
+      if (end_date) params.set('end_date', end_date);
+      if (event_status) params.set('event_status', event_status);
+      if (group_by) params.set('group_by', group_by);
+      if (continuation) params.set('continuation', continuation);
+      return textResult(
+        await client.request('GET', `/organizations/${enc(org_id)}/reports/${kind}/${qs(params)}`)
+      );
     }
   );
 }
