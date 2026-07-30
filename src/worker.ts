@@ -17,8 +17,10 @@ import { DiscoveryClient } from './discovery.js';
 //
 // FULL bearer-token surface, including discovery. Verified live 2026-07-30:
 // the documented host serves the consumer search at POST /destination/search/
-// and batch detail at GET /events/?event_ids=… with a plain bearer token — no
-// WAF, no CSRF, no browser — so discovery works here. `DiscoveryClient` is
+// and batch detail at GET /destination/events/?event_ids=… with a plain bearer
+// token — no WAF, no CSRF, no browser — so discovery works here. (The
+// documented-shape /events/?event_ids= also works but is deliberately NOT used;
+// see the note in DiscoveryClient.eventsByIds.) `DiscoveryClient` is
 // built with a null transport: there is no fetchproxy bridge in a Worker and
 // therefore no fallback route.
 //

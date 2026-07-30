@@ -35,7 +35,7 @@ describe('tool registry', () => {
       registerAccountTools(server, { client });
       registerEventTools(server, { client });
       registerLookupTools(server, { client });
-      await await registerDiscoveryTools(server, { discovery, transport });
+      await registerDiscoveryTools(server, { discovery, transport });
     });
 
     const tools = await harness.listTools();
