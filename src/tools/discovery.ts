@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { textResult } from '@chrischall/mcp-utils';
-import { registerBridgeHealthcheckTool } from '@chrischall/mcp-utils/fetchproxy';
 import { DiscoveryClient, toCompactEvent } from '../discovery.js';
 import type { EventbriteTransport } from '../transport.js';
 
@@ -23,7 +22,10 @@ export interface DiscoveryDeps {
  * ARE registered by the hosted connector. The fetchproxy bridge remains a
  * fallback on the stdio path.
  */
-export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): void {
+export async function registerDiscoveryTools(
+  server: McpServer,
+  deps: DiscoveryDeps
+): Promise<void> {
   const { discovery, transport } = deps;
 
   server.registerTool(
@@ -124,7 +126,7 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
     'eb_event_details',
     {
       description:
-        'Batch-fetch public event details by id via the consumer API (no token needed). For ticket-class detail prefer eb_ticket_classes (documented API).',
+        "Batch-fetch public event details by id. Uses your bearer token by default, falling back to the browser bridge when no token is configured. For ticket-class detail prefer eb_ticket_classes.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         event_ids: z.array(z.string()).min(1).max(20).describe('Numeric event ids'),
@@ -149,6 +151,10 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
   // there is nothing for it to report on, so it is not registered at all —
   // better than a tool that always answers "no transport".
   if (!transport) return;
+
+  // Imported lazily, AFTER the guard: a static import would drag the fetchproxy
+  // helper into the Worker bundle where it can never run.
+  const { registerBridgeHealthcheckTool } = await import('@chrischall/mcp-utils/fetchproxy');
 
   // The categories endpoint answers 200 JSON on the www host regardless of
   // login state, so it isolates bridge problems from Eventbrite-side problems.

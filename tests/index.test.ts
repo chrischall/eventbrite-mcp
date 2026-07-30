@@ -31,11 +31,11 @@ describe('tool registry', () => {
       runProbe: vi.fn(),
     } as unknown as EventbriteTransport;
 
-    harness = await createTestHarness((server) => {
+    harness = await createTestHarness(async (server) => {
       registerAccountTools(server, { client });
       registerEventTools(server, { client });
       registerLookupTools(server, { client });
-      registerDiscoveryTools(server, { discovery, transport });
+      await await registerDiscoveryTools(server, { discovery, transport });
     });
 
     const tools = await harness.listTools();

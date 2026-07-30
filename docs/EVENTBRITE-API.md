@@ -76,7 +76,8 @@ live 2026-07-30 against `www.eventbriteapi.com/v3`:
 | call | result |
 | --- | --- |
 | `POST /destination/search/` (bearer) | **200** — full search envelope, 109 hits for `blues` in Charlotte |
-| `GET /events/?event_ids=<id,…>` | **200** — `{events, pagination}` batch detail |
+| `GET /destination/events/?event_ids=<id,…>` | **200** — batch detail in the DESTINATION shape; this is the one the MCP uses |
+| `GET /events/?event_ids=<id,…>` | **200** — same data in the DOCUMENTED shape (see the shape warning below) |
 | `GET /events/search/` | 404 — the endpoint withdrawn in Dec 2019 really is gone |
 
 Auth for `POST /destination/search/`: a **private OR public token** both return
@@ -84,6 +85,24 @@ Auth for `POST /destination/search/`: a **private OR public token** both return
 No CSRF header, no cookie, no browser. `event_search.location` is not accepted
 (`ARGUMENTS_ERROR`) — filter by `places: ["<placeId>"]`, or omit it for a global
 search.
+
+**Two batch endpoints, two different shapes — this matters.** Both live on the
+documented host and both return the same events, but not the same JSON:
+
+| field | `/destination/events/` | `/events/` |
+| --- | --- | --- |
+| title | `name` — plain string | `name: {text, html}` |
+| time | `start_date` + `start_time` | `start: {utc, local, timezone}` |
+| venue | `primary_venue` (with `expand`) | `venue` (with `expand`) |
+
+`eb_event_details` returns the payload raw, and its bridge fallback speaks the
+destination shape, so using `/events/` would flip the caller's parse target
+depending on which route happened to run. `/destination/events/` is therefore
+the API route — it also accepts the destination expansion names
+(`primary_venue`, `primary_organizer`, `ticket_availability`) natively, so no
+name translation is needed. `/events/` accepts only documented names:
+`expand=venue,organizer,ticket_availability` works there, `expand=primary_venue`
+is silently ignored.
 
 There is **no place-resolution endpoint**: `/destination/places/`,
 `/destination/places/<id>/`, `/places/` and `/destination/autocomplete/` all
