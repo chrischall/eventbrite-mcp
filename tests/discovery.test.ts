@@ -7,7 +7,6 @@ import {
   slugCandidates,
   extractBrowseShelves,
   parseServerData,
-  toDocExpansions,
 } from '../src/discovery.js';
 import type { EventbriteTransport } from '../src/transport.js';
 
@@ -448,30 +447,6 @@ function mockApi(impl?: (m: string, p: string, b?: unknown) => unknown) {
   } as unknown as import('../src/client.js').EventbriteClient & { request: ReturnType<typeof vi.fn> };
 }
 
-describe('toDocExpansions', () => {
-  // Verified live 2026-07-30: expand=venue,organizer,ticket_availability adds
-  // keys on the documented host; expand=primary_venue is silently ignored.
-  it('translates destination names to the documented vocabulary', () => {
-    expect(toDocExpansions(['primary_venue', 'primary_organizer', 'ticket_availability'])).toEqual([
-      'venue',
-      'organizer',
-      'ticket_availability',
-    ]);
-  });
-
-  it('drops names with no documented equivalent rather than sending them', () => {
-    expect(toDocExpansions(['image', 'event_sales_status', 'saves'])).toEqual([]);
-  });
-
-  it('passes unknown names through untouched', () => {
-    expect(toDocExpansions(['ticket_classes'])).toEqual(['ticket_classes']);
-  });
-
-  it('de-duplicates collisions', () => {
-    expect(toDocExpansions(['primary_venue', 'venue'])).toEqual(['venue']);
-  });
-});
-
 describe('DiscoveryClient — API-first routing', () => {
   it('prefers the API for search and never touches the bridge', async () => {
     const api = mockApi(() => ({ events: { results: [] } }));
@@ -508,20 +483,27 @@ describe('DiscoveryClient — API-first routing', () => {
     );
   });
 
-  it('passes translated expansions through on the API batch route', async () => {
+  it('uses the DESTINATION batch endpoint so both routes return one shape', async () => {
+    // /events/?event_ids= also works on this host but returns the documented
+    // shape (name:{text,html}, start:{utc}); the bridge returns the destination
+    // shape. eb_event_details hands the payload back raw, so the route must not
+    // change the caller's parse target.
     const api = mockApi(() => ({ events: [] }));
     await new DiscoveryClient(null, api).eventsByIds(['1', '2'], ['primary_venue', 'image']);
     const path = api.request.mock.calls[0][1] as string;
+    // Substring checks are a trap here: '/destination/events/?event_ids' also
+    // contains '/events/?event_ids'. Anchor to the start of the path instead.
+    expect(path.startsWith('/destination/events/?')).toBe(true);
+    expect(path.startsWith('/events/?')).toBe(false);
     expect(path).toContain('event_ids=1%2C2');
-    expect(path).toContain('expand=venue');
-    expect(path).not.toContain('primary_venue');
-    expect(path).not.toContain('image');
   });
 
-  it('omits expand entirely when nothing survives translation', async () => {
+  it('passes destination expansion names through untranslated', async () => {
     const api = mockApi(() => ({ events: [] }));
-    await new DiscoveryClient(null, api).eventsByIds(['1'], ['image']);
-    expect(api.request.mock.calls[0][1]).not.toContain('expand=');
+    await new DiscoveryClient(null, api).eventsByIds(['1'], ['primary_venue', 'ticket_availability']);
+    const path = api.request.mock.calls[0][1] as string;
+    expect(path).toContain('primary_venue');
+    expect(path).toContain('ticket_availability');
   });
 });
 

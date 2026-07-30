@@ -60,11 +60,11 @@ describe('Eventbrite Cloudflare connector — tool surface', () => {
     const client = new EventbriteClient({ token: 'test-token' });
 
     // Mirror src/worker.ts's `tools` array exactly (same order, same wiring).
-    const harness = await createTestHarness((server) => {
+    const harness = await createTestHarness(async (server) => {
       registerAccountTools(server, { client });
       registerEventTools(server, { client });
       registerLookupTools(server, { client });
-      registerDiscoveryTools(server, {
+      await registerDiscoveryTools(server, {
         discovery: new DiscoveryClient(null, client),
         transport: null,
       });

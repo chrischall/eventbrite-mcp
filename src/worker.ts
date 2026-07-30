@@ -41,7 +41,9 @@ const { Agent, handler } = createConnector<EventbriteProps, EventbriteClient>({
     // Discovery now rides the documented host with the user's own bearer token
     // (no browser bridge), so it works inside a Worker. `transport` is null —
     // there is no fetchproxy here, and no fallback route.
-    (server, client) =>
+    // Async because registerDiscoveryTools lazily imports the fetchproxy
+    // healthcheck helper — behind a guard that is never taken here.
+    async (server, client) =>
       registerDiscoveryTools(server, {
         discovery: new DiscoveryClient(null, client),
         transport: null,

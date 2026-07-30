@@ -10,35 +10,6 @@ import { McpToolError, BotWallError, parseCookieHeader } from '@chrischall/mcp-u
 import type { EventbriteTransport, FetchResult } from './transport.js';
 import type { EventbriteClient } from './client.js';
 
-/**
- * The two surfaces name expansions differently. Verified live 2026-07-30:
- * `expand=venue,organizer,ticket_availability` adds those keys on the
- * documented host, while `expand=primary_venue` is silently ignored there.
- * Destination-style names are translated; names with no documented equivalent
- * (image, event_sales_status) are dropped rather than sent uselessly.
- */
-const DESTINATION_TO_DOC_EXPANSION: Record<string, string | null> = {
-  primary_venue: 'venue',
-  primary_organizer: 'organizer',
-  ticket_availability: 'ticket_availability',
-  image: null,
-  event_sales_status: null,
-  saves: null,
-  public_collections: null,
-};
-
-/** Map destination-style expansion names onto the documented API's vocabulary. */
-export function toDocExpansions(expand: string[]): string[] {
-  const out: string[] = [];
-  for (const e of expand) {
-    const mapped = Object.prototype.hasOwnProperty.call(DESTINATION_TO_DOC_EXPANSION, e)
-      ? DESTINATION_TO_DOC_EXPANSION[e]
-      : e; // unknown names pass through untouched
-    if (mapped && !out.includes(mapped)) out.push(mapped);
-  }
-  return out;
-}
-
 /** Browse pages are plain SSR HTML — reachable server-side, no bridge needed. */
 const BROWSE_ORIGIN = 'https://www.eventbrite.com';
 const BROWSE_UA =
@@ -394,13 +365,20 @@ export class DiscoveryClient {
   ): Promise<T> {
     if (this.api) {
       try {
-        // Verified live 2026-07-30: the documented host serves the same batch
-        // envelope at /events/?event_ids=… with no bridge involved, and honours
-        // `expand` in ITS vocabulary (see toDocExpansions).
+        // Verified live 2026-07-30: the documented HOST also serves the
+        // DESTINATION batch endpoint, and that is deliberately the one used.
+        //
+        // `/events/?event_ids=` works too but returns the documented shape
+        // (`name: {text, html}`, `start: {utc}`, no primary_venue), while the
+        // bridge fallback and eb_search_events both return the destination
+        // shape (`name` string, `start_date`/`start_time`, `primary_venue`).
+        // Since eb_event_details hands the payload back raw, using /events/
+        // would flip the caller's parse target depending on which route ran.
+        // /destination/events/ keeps one shape on both routes and accepts the
+        // destination expansion names natively, so nothing needs translating.
         const params = new URLSearchParams({ event_ids: eventIds.join(',') });
-        const docExpand = toDocExpansions(expand);
-        if (docExpand.length > 0) params.set('expand', docExpand.join(','));
-        return await this.api.request<T>('GET', `/events/?${params}`);
+        if (expand.length > 0) params.set('expand', expand.join(','));
+        return await this.api.request<T>('GET', `/destination/events/?${params}`);
       } catch (e) {
         if (!this.transport) throw e;
         console.error(
