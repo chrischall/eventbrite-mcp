@@ -5,6 +5,8 @@ import { eventbriteAuth, type EventbriteProps } from './eventbrite-auth.js';
 import { registerAccountTools } from './tools/account.js';
 import { registerEventTools } from './tools/events.js';
 import { registerLookupTools } from './tools/lookup.js';
+import { registerDiscoveryTools } from './tools/discovery.js';
+import { DiscoveryClient } from './discovery.js';
 
 // The Cloudflare remote-connector entrypoint: wires the token-API tool
 // registrars (the same ones `src/index.ts` uses) into
@@ -32,6 +34,14 @@ const { Agent, handler } = createConnector<EventbriteProps, EventbriteClient>({
     (server, client) => registerAccountTools(server, { client }),
     (server, client) => registerEventTools(server, { client }),
     (server, client) => registerLookupTools(server, { client }),
+    // Discovery now rides the documented host with the user's own bearer token
+    // (no browser bridge), so it works inside a Worker. `transport` is null —
+    // there is no fetchproxy here, and no fallback route.
+    (server, client) =>
+      registerDiscoveryTools(server, {
+        discovery: new DiscoveryClient(null, client),
+        transport: null,
+      }),
   ],
 });
 

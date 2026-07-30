@@ -12,16 +12,17 @@ import { registerDiscoveryTools } from './tools/discovery.js';
 // Two surfaces, one server:
 //  - `client` (documented API, bearer EVENTBRITE_TOKEN) — deferred-config
 //    singleton from ./client.js; account + event tools.
-//  - `transport`/`discovery` (WAF-walled consumer API) — the fetchproxy
-//    bridge on the fleet-wide concentrator port 37149. The port binds lazily
-//    on the first discovery call, so token-only usage never touches the
-//    bridge. The hosted connector (src/worker.ts) registers only the
-//    token-API tools — the bridge does not exist in a Worker.
+//  - `discovery` (public event discovery). Verified live 2026-07-30: the
+//    documented host serves the consumer search at
+//    POST /destination/search/ with a plain bearer token — no WAF, no CSRF,
+//    no browser. That is now the primary route, so discovery works in a
+//    Worker too. The fetchproxy bridge (port 37149, bound lazily) is kept as
+//    a FALLBACK for when no token is configured or the API route refuses.
 const transport = new FetchproxyTransport({
   version: VERSION,
   port: readPortEnv('EVENTBRITE_WS_PORT', 37_149),
 });
-const discovery = new DiscoveryClient(transport);
+const discovery = new DiscoveryClient(transport, client);
 
 await runMcp({
   name: 'eventbrite-mcp',

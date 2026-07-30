@@ -68,10 +68,10 @@ Claude Code (`.mcp.json`):
 | `eb_series_events` | token | occurrences of a recurring series |
 | `eb_user` | token | a public user profile |
 | `eb_reference` | token | categories / subcategories / formats / timezones / countries / regions |
-| `eb_resolve_place` | bridge | location → place id (`Charlotte, NC` → `85981333`), plus page 1 free |
-| `eb_search_events` | bridge | the consumer search; `compact: true` for slim results, `aggs` for facets |
-| `eb_event_details` | bridge | batch event detail, no token needed |
-| `eb_healthcheck` | bridge | end-to-end bridge diagnostics |
+| `eb_resolve_place` | token | location → place id (`Charlotte, NC` → `85981333`), plus browse shelves |
+| `eb_search_events` | token | the consumer search; `compact: true` for slim results, `aggs` for facets |
+| `eb_event_details` | token | batch event detail |
+| `eb_healthcheck` | bridge | bridge diagnostics (stdio only; the bridge is a fallback route) |
 
 Search flow: `eb_resolve_place {location: "Charlotte, NC"}` →
 `eb_search_events {q: "blues", place_id: "85981333", compact: true}`.

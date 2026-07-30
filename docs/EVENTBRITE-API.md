@@ -12,7 +12,8 @@ Two surfaces. Everything here was probed/captured on 2026-07-30.
 - Pagination envelope on every list:
   `{"pagination": {object_count, page_number, page_size, page_count, has_more_items, continuation}}` —
   loop with `?continuation=<token>`.
-- **No public event search** — `GET /events/search/` was removed in Dec 2019.
+- `GET /events/search/` was removed in Dec 2019 and is confirmed 404. But this
+  host DOES serve public search at `POST /destination/search/` — see Surface 2.
 - Rate limit: 2,000 calls/hour per token (default plan).
 
 Endpoints used by this MCP (all GET):
@@ -67,14 +68,31 @@ authenticates (200 on `/categories/`) but is not user-scoped — `/users/me/`
 answers 403 `NOT_AUTHORIZED`. Only the private token from the API Keys page
 reaches account data.
 
-## Surface 2: consumer/discovery API — `https://www.eventbrite.com/api/v3/…`
+## Surface 2: consumer/discovery API
 
-- WAF-blocked for server-side clients (HTML "Whoops!" interstitial, even on
-  GET). All calls ride the user's signed-in browser tab via the fetchproxy
-  bridge.
-- **The www host proxies the entire documented v3 API with session auth** —
-  `GET www.eventbrite.com/api/v3/users/me/` returns the same user object the
-  token API returns. (This is how the doc-API shapes above were verified.)
+**The documented host serves it too — this is the primary route.** Verified
+live 2026-07-30 against `www.eventbriteapi.com/v3`:
+
+| call | result |
+| --- | --- |
+| `POST /destination/search/` (bearer) | **200** — full search envelope, 109 hits for `blues` in Charlotte |
+| `GET /events/?event_ids=<id,…>` | **200** — `{events, pagination}` batch detail |
+| `GET /events/search/` | 404 — the endpoint withdrawn in Dec 2019 really is gone |
+
+Auth for `POST /destination/search/`: a **private OR public token** both return
+200; the API key returns 401 `INVALID_AUTH` and no auth returns 401 `NO_AUTH`.
+No CSRF header, no cookie, no browser. `event_search.location` is not accepted
+(`ARGUMENTS_ERROR`) — filter by `places: ["<placeId>"]`, or omit it for a global
+search.
+
+There is **no place-resolution endpoint**: `/destination/places/`,
+`/destination/places/<id>/`, `/places/` and `/destination/autocomplete/` all
+404. Place ids still come from the SSR browse page (below), which is itself
+reachable by a plain server-side GET.
+
+`www.eventbrite.com/api/v3/…` (the consumer host) remains WAF-blocked for
+server-side clients and is now only a FALLBACK, used when no token is
+configured or the API route refuses. Its CSRF rules still apply on that path:
 
 ### Destination search (the site's own search) — captured live
 
@@ -142,12 +160,21 @@ unnecessary: the SSR browse page embeds the id. `GET /d/<slug>/events/`
 ~700 KB page), plus `"currentPlace":"<Name>"`. The page's `__SERVER_DATA__`
 also embeds the full first page of results in `search_data`.
 
-`extractFirstPageEvents` (src/discovery.ts) brace-matches `__SERVER_DATA__` and
-reads `search_data.events.results`. **The exact nesting is UNVERIFIED** — it was
-written from the observation above, not from a re-capture, because the bridge
-was unpaired. It is fully guarded: any mismatch returns `undefined` and the
-caller simply searches normally, so a wrong guess costs a saved round-trip, not
-correctness. Confirm the path on the next capture.
+`/d/<slug>/events/` answers **200 to a plain server-side GET** with a browser
+User-Agent — ~800 KB, no bridge, no session (verified 2026-07-30). Beware a
+naive WAF grep: the page contains `recaptcha_language` in a config blob, which
+is not an interstitial.
+
+`extractBrowseShelves` (src/discovery.ts) reads the embedded events. The real
+`__SERVER_DATA__` keys are `placeId`, `cityPlaceId`, `currentPlace`, `citySlug`,
+`region`, `regionSlug`, `country`, `neighbourhood`, `borough`, `buckets`,
+`reactQueryData`. **There is no `search_data` key** — an earlier revision looked
+for one and could never fire — and `reactQueryData` is a *string*, not a
+carrier. Events live in `buckets[]`, each `{key, name, events[]}`: six themed
+shelves (`popular_events`, `this_weekend`, `online_events`, `nightlife_events`,
+`neighbourhood_events`, `trending_searches`), 32 events total. These are curated
+shelves, NOT a page of search results, and they carry `primary_venue` but no
+`ticket_availability` or expanded organizer.
 
 Free-text locations are turned into candidate slugs client-side
 (`slugCandidates`) — `'Charlotte, NC'` and `'Charlotte, North Carolina'` both

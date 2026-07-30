@@ -8,6 +8,12 @@
 
 import { McpToolError, BotWallError, parseCookieHeader } from '@chrischall/mcp-utils';
 import type { EventbriteTransport, FetchResult } from './transport.js';
+import type { EventbriteClient } from './client.js';
+
+/** Browse pages are plain SSR HTML — reachable server-side, no bridge needed. */
+const BROWSE_ORIGIN = 'https://www.eventbrite.com';
+const BROWSE_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
 
 /** Expansions the site itself requests for search results / event batches. */
 export const DEFAULT_EVENT_EXPANSIONS = [
@@ -48,8 +54,11 @@ export interface ResolvedPlace {
   placeId: string;
   name: string | null;
   slug: string;
-  /** Page 1 of browse results, harvested from the SSR page when available. */
-  firstPage?: CompactEvent[];
+  /** Region/country context harvested from the same SSR page. */
+  region?: string;
+  country?: string;
+  /** Themed browse shelves embedded in the SSR page, when present. */
+  shelves?: BrowseShelf[];
 }
 
 /** Compact projection of a destination event for browse/rank use. */
@@ -220,11 +229,31 @@ export function toCompactEvent(ev: Record<string, unknown>): CompactEvent {
 }
 
 export class DiscoveryClient {
-  private readonly transport: EventbriteTransport;
+  private readonly transport: EventbriteTransport | null;
+  private readonly api: EventbriteClient | null;
   private csrfToken: string | null = null;
 
-  constructor(transport: EventbriteTransport) {
+  /**
+   * Two routes to the same data, preferred in order:
+   *
+   * 1. `api` — `POST eventbriteapi.com/v3/destination/search/` with a bearer
+   *    token. Verified live 2026-07-30: works with a private OR public token,
+   *    no WAF, no CSRF, no cookies. This is the default because it needs no
+   *    browser and therefore works inside a Worker.
+   * 2. `transport` — the fetchproxy bridge through a signed-in tab. Retained as
+   *    a fallback for when no token is configured, or the API route refuses.
+   *
+   * Either may be null; at least one must be present for a call to succeed.
+   */
+  constructor(transport: EventbriteTransport | null, api: EventbriteClient | null = null) {
     this.transport = transport;
+    this.api = api;
+  }
+
+  private noRoute(what: string): McpToolError {
+    return new McpToolError(`No route available for ${what}.`, {
+      hint: 'Set EVENTBRITE_TOKEN, or pair the fetchproxy bridge and keep an eventbrite.com tab open.',
+    });
   }
 
   /**
@@ -234,6 +263,7 @@ export class DiscoveryClient {
    */
   private async ensureCsrf(force = false): Promise<string> {
     if (this.csrfToken && !force) return this.csrfToken;
+    if (!this.transport) throw this.noRoute('the CSRF cookie read');
     const raw = await this.transport.readCookies(['csrftoken']);
     const token = parseCookieHeader(raw)['csrftoken'];
     if (!token) {
@@ -266,11 +296,26 @@ export class DiscoveryClient {
     throw new McpToolError(`Eventbrite returned HTTP ${result.status} for ${path}. ${detail}`);
   }
 
-  /** POST /api/v3/destination/search/ — public event search. */
+  /** Public event search — token API first, bridge as fallback. */
   async search<T = Record<string, unknown>>(params: SearchParams): Promise<T> {
     const body = buildSearchBody(params);
+
+    if (this.api) {
+      try {
+        return await this.api.request<T>('POST', '/destination/search/', body);
+      } catch (e) {
+        // No bridge to fall back to — surface the API's own error.
+        if (!this.transport) throw e;
+        console.error(
+          '[eventbrite-mcp] token-API search failed, falling back to the browser bridge:',
+          e instanceof Error ? e.message : String(e)
+        );
+      }
+    }
+    const transport = this.transport;
+    if (!transport) throw this.noRoute('event search');
     const attempt = async (csrf: string) =>
-      this.transport.requestJson<T>('POST', '/api/v3/destination/search/', {
+      transport.requestJson<T>('POST', '/api/v3/destination/search/', {
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrf,
@@ -288,17 +333,60 @@ export class DiscoveryClient {
     return data as T;
   }
 
-  /** GET /api/v3/destination/events/ — batch event detail by id. */
+  /** Batch event detail by id — token API first, bridge as fallback. */
   async eventsByIds<T = Record<string, unknown>>(
     eventIds: string[],
     expand: string[] = [...DEFAULT_EVENT_EXPANSIONS]
   ): Promise<T> {
+    if (this.api) {
+      try {
+        // Verified live 2026-07-30: the documented host serves the same batch
+        // envelope at /events/?event_ids=… with no bridge involved.
+        return await this.api.request<T>(
+          'GET',
+          `/events/?event_ids=${eventIds.map(encodeURIComponent).join(',')}`
+        );
+      } catch (e) {
+        if (!this.transport) throw e;
+        console.error(
+          '[eventbrite-mcp] token-API event batch failed, falling back to the browser bridge:',
+          e instanceof Error ? e.message : String(e)
+        );
+      }
+    }
+    if (!this.transport) throw this.noRoute('event detail');
     const path = `/api/v3/destination/events/?event_ids=${eventIds.join(',')}&expand=${expand.join(',')}`;
     const { data, result } = await this.transport.requestJson<T>('GET', path, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
     });
     this.guard(data, result, '/api/v3/destination/events/');
     return data as T;
+  }
+
+  /**
+   * Fetch an SSR browse page. Verified live 2026-07-30: `/d/<slug>/events/`
+   * answers 200 with the full ~800 KB page to a plain server-side GET carrying
+   * a browser User-Agent — no bridge, no session. The bridge stays as a
+   * fallback for when the direct fetch is blocked.
+   *
+   * `fetch` is called directly rather than stored: a detached reference throws
+   * `Illegal invocation` in workerd (fleet gotcha).
+   */
+  private async fetchBrowsePage(path: string): Promise<FetchResult> {
+    try {
+      const res = await fetch(`${BROWSE_ORIGIN}${path}`, {
+        headers: { 'User-Agent': BROWSE_UA, Accept: 'text/html' },
+      });
+      const body = await res.text();
+      return { status: res.status, body, url: `${BROWSE_ORIGIN}${path}` };
+    } catch (e) {
+      if (!this.transport) throw e;
+      console.error(
+        '[eventbrite-mcp] direct browse fetch failed, falling back to the browser bridge:',
+        e instanceof Error ? e.message : String(e)
+      );
+      return this.transport.fetch({ path, method: 'GET' });
+    }
   }
 
   /**
@@ -309,7 +397,7 @@ export class DiscoveryClient {
    */
   async resolvePlace(slug: string): Promise<ResolvedPlace> {
     const path = `/d/${slug}/events/`;
-    const result = await this.transport.fetch({ path, method: 'GET' });
+    const result = await this.fetchBrowsePage(path);
     if (result.status === 404) {
       throw new McpToolError(`No Eventbrite browse page for slug '${slug}'.`, {
         hint: "Slug format is '<state>--<city>' for US (nc--charlotte) or '<country>--<city>' elsewhere (germany--berlin).",
@@ -326,11 +414,15 @@ export class DiscoveryClient {
       name: nameMatch ? nameMatch[1] : null,
       slug,
     };
-    // The SSR page already carries page 1 of results; harvesting it saves a
-    // whole CSRF'd search POST. Best-effort by design — if the embedded shape
-    // ever drifts, callers simply get no firstPage and search normally.
-    const firstPage = extractFirstPageEvents(body);
-    if (firstPage) place.firstPage = firstPage;
+    // The same fetch already carries curated browse shelves and place context;
+    // harvesting them is free. Best-effort — drift yields nothing extra.
+    const data = parseServerData(body);
+    if (data) {
+      if (typeof data.region === 'string') place.region = data.region;
+      if (typeof data.country === 'string') place.country = data.country;
+    }
+    const shelves = extractBrowseShelves(body);
+    if (shelves) place.shelves = shelves;
     return place;
   }
 
@@ -360,20 +452,57 @@ export class DiscoveryClient {
 }
 
 /**
- * Pull page 1 of browse results out of an SSR page's `__SERVER_DATA__`.
- *
- * UNVERIFIED against live bytes (the browser bridge was unpaired when this was
- * written) — the nesting below follows docs/EVENTBRITE-API.md's note that the
- * SSR page embeds `search_data`. Every step is guarded and any mismatch yields
- * `undefined`, so a wrong guess degrades to "search normally", never an error.
+ * A themed shelf from a browse page ("Popular in Charlotte", "This Weekend").
  */
-export function extractFirstPageEvents(body: string): CompactEvent[] | undefined {
-  const marker = body.indexOf('__SERVER_DATA__');
-  if (marker === -1) return undefined;
-  const start = body.indexOf('{', marker);
-  if (start === -1) return undefined;
+export interface BrowseShelf {
+  key: string;
+  name: string;
+  events: CompactEvent[];
+}
 
-  // Brace-match to find the end of the JSON object (string-aware).
+/**
+ * Pull the themed browse shelves out of an SSR browse page's `__SERVER_DATA__`.
+ *
+ * Verified against live bytes (2026-07-30, /d/nc--charlotte/events/): the events
+ * live in `buckets[]`, each `{key, name, events[]}` — NOT in `search_data`
+ * (which does not exist) and not in `reactQueryData` (which is a string). These
+ * are curated shelves, not a page of search results, so they are surfaced as
+ * such rather than pretending to be search output.
+ *
+ * Shelf events carry `primary_venue` but no `ticket_availability` or expanded
+ * organizer, so those CompactEvent fields stay undefined here.
+ *
+ * Guarded throughout: any drift yields `undefined` and the caller simply
+ * searches normally.
+ */
+export function extractBrowseShelves(body: string): BrowseShelf[] | undefined {
+  const data = parseServerData(body);
+  if (!data) return undefined;
+  const buckets = data.buckets;
+  if (!Array.isArray(buckets)) return undefined;
+
+  const shelves: BrowseShelf[] = [];
+  for (const b of buckets) {
+    if (!b || typeof b !== 'object') continue;
+    const bucket = b as Record<string, unknown>;
+    const events = bucket.events;
+    if (!Array.isArray(events) || events.length === 0) continue;
+    shelves.push({
+      key: String(bucket.key ?? ''),
+      name: String(bucket.name ?? ''),
+      events: events.map((e) => toCompactEvent(e as Record<string, unknown>)),
+    });
+  }
+  return shelves.length > 0 ? shelves : undefined;
+}
+
+/** Brace-match `__SERVER_DATA__`'s object and parse it. Returns null on drift. */
+export function parseServerData(body: string): Record<string, unknown> | null {
+  const marker = body.indexOf('__SERVER_DATA__');
+  if (marker === -1) return null;
+  const start = body.indexOf('{', marker);
+  if (start === -1) return null;
+
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -396,16 +525,11 @@ export function extractFirstPageEvents(body: string): CompactEvent[] | undefined
       }
     }
   }
-  if (end === -1) return undefined;
+  if (end === -1) return null;
 
   try {
-    const parsed = JSON.parse(body.slice(start, end)) as Record<string, unknown>;
-    const searchData = parsed.search_data as Record<string, unknown> | undefined;
-    const events = searchData?.events as Record<string, unknown> | undefined;
-    const results = events?.results;
-    if (!Array.isArray(results)) return undefined;
-    return results.map((r) => toCompactEvent(r as Record<string, unknown>));
+    return JSON.parse(body.slice(start, end)) as Record<string, unknown>;
   } catch {
-    return undefined;
+    return null;
   }
 }
