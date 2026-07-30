@@ -80,3 +80,39 @@ describe('lookup tools', () => {
     expect(path).toBe(`/orders/${encodeURIComponent('../../users/me')}/`);
   });
 });
+
+describe('path-segment safety', () => {
+  let harness: Awaited<ReturnType<typeof createTestHarness>> | undefined;
+
+  afterEach(async () => {
+    if (harness) await harness.close();
+    harness = undefined;
+  });
+
+  // encodeURIComponent leaves dots untouched, so a BARE '..' is not neutralised
+  // by encoding alone — it has to be rejected outright.
+  it('rejects a bare .. id instead of traversing a path segment', async () => {
+    const client = mockClient();
+    harness = await harnessFor(client);
+    const res = await harness.callTool('eb_order', { order_id: '..' });
+    expect(res.isError).toBe(true);
+    expect(client.request).not.toHaveBeenCalled();
+  });
+
+  it('rejects a single dot and dot-only ids', async () => {
+    const client = mockClient();
+    harness = await harnessFor(client);
+    for (const bad of ['.', '...']) {
+      const res = await harness.callTool('eb_venue', { venue_id: bad });
+      expect(res.isError).toBe(true);
+    }
+    expect(client.request).not.toHaveBeenCalled();
+  });
+
+  it('still accepts ordinary ids', async () => {
+    const client = mockClient();
+    harness = await harnessFor(client);
+    await harness.callTool('eb_order', { order_id: '1993024228117' });
+    expect(client.request.mock.calls[0][1]).toBe('/orders/1993024228117/');
+  });
+});

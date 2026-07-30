@@ -324,3 +324,60 @@ describe('extractFirstPageEvents', () => {
     expect(extractFirstPageEvents('__SERVER_DATA__ = {"search_data": ')).toBeUndefined();
   });
 });
+
+describe('slugCandidates — multiple qualifiers', () => {
+  it("does not fold trailing parts into one qualifier: 'Charlotte, NC, USA'", () => {
+    const c = slugCandidates('Charlotte, NC, USA');
+    expect(c[0]).toBe('nc--charlotte');
+    expect(c).not.toContain('nc-usa--charlotte');
+  });
+
+  it("expands a country abbreviation: 'London, UK'", () => {
+    const c = slugCandidates('London, UK');
+    expect(c).toContain('united-kingdom--london');
+  });
+
+  it('drops bare US country markers, which are never valid slugs', () => {
+    // US browse slugs are state-scoped, so 'usa--charlotte' can never resolve.
+    expect(slugCandidates('Charlotte, NC, USA')).not.toContain('usa--charlotte');
+  });
+
+  it('still yields a single candidate for the simple case', () => {
+    expect(slugCandidates('Berlin, Germany')).toEqual(['germany--berlin']);
+  });
+
+  it('never emits duplicates', () => {
+    const c = slugCandidates('Charlotte, NC, North Carolina');
+    expect(new Set(c).size).toBe(c.length);
+  });
+});
+
+describe('DiscoveryClient.resolveLocation', () => {
+  it('throws a helpful error for a bare city, before any network call', async () => {
+    const fetchFn = vi.fn();
+    const client = new DiscoveryClient(mockTransport({ fetch: fetchFn }));
+    await expect(client.resolveLocation('Charlotte')).rejects.toThrow(/browse slug/i);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('falls through to the next candidate when the first slug 404s', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 404, body: '', url: '' })
+      .mockResolvedValueOnce({
+        status: 200,
+        body: '"placeId":"999" "currentPlace":"London"',
+        url: '',
+      });
+    const client = new DiscoveryClient(mockTransport({ fetch: fetchFn }));
+    const place = await client.resolveLocation('London, UK');
+    expect(place.placeId).toBe('999');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('surfaces the last error when every candidate fails', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ status: 404, body: '', url: '' });
+    const client = new DiscoveryClient(mockTransport({ fetch: fetchFn }));
+    await expect(client.resolveLocation('Nowhere, Neverland')).rejects.toThrow();
+  });
+});

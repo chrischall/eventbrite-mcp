@@ -44,11 +44,32 @@ describe('event tools', () => {
     expect(client.request.mock.calls[1][1]).toBe('/formats/');
   });
 
-  it('eb_reference maps timezones to the /system/ prefix, not a bare /timezones/', async () => {
+  it('routes timezones, countries and regions under /system/', async () => {
+    // Verified live 2026-07-30: the bare /countries/ and /regions/ paths 404;
+    // only the /system/-prefixed forms exist.
     const client = mockClient();
     harness = await createTestHarness((server) => registerEventTools(server, { client }));
-    await harness.callTool('eb_reference', { kind: 'timezones' });
-    expect(client.request.mock.calls[0][1]).toBe('/system/timezones/');
+    for (const kind of ['timezones', 'countries', 'regions'] as const) {
+      await harness.callTool('eb_reference', { kind });
+    }
+    expect(client.request.mock.calls.map((c) => c[1])).toEqual([
+      '/system/timezones/',
+      '/system/countries/',
+      '/system/regions/',
+    ]);
+  });
+
+  it('keeps the taxonomy lists at the API root', async () => {
+    const client = mockClient();
+    harness = await createTestHarness((server) => registerEventTools(server, { client }));
+    for (const kind of ['categories', 'subcategories', 'formats'] as const) {
+      await harness.callTool('eb_reference', { kind });
+    }
+    expect(client.request.mock.calls.map((c) => c[1])).toEqual([
+      '/categories/',
+      '/subcategories/',
+      '/formats/',
+    ]);
   });
 
   it('eb_event_attendees forwards status, changed_since and continuation', async () => {

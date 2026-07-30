@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { McpToolError } from '@chrischall/mcp-utils';
 
 /**
  * Shared request-building helpers for the documented-API tool modules.
@@ -26,8 +27,18 @@ export function qs(params: URLSearchParams): string {
 }
 
 /**
- * Percent-encode a path segment. Ids reach these tools from model output, so
- * they must not be able to traverse out of their segment (`../`) or inject a
- * query of their own.
+ * Percent-encode a path segment, rejecting ids that would traverse.
+ *
+ * `encodeURIComponent` alone is NOT sufficient: `.` is an unreserved character,
+ * so `encodeURIComponent('..') === '..'` and `/orders/../` climbs a segment
+ * before the request is ever sent. Slashes do encode, so only dot-only ids are
+ * dangerous — reject those outright rather than trying to sanitise them.
  */
-export const enc = encodeURIComponent;
+export function enc(id: string): string {
+  if (/^\.+$/.test(id)) {
+    throw new McpToolError(`Invalid id '${id}'.`, {
+      hint: 'Ids must be Eventbrite object ids (normally digits), not path segments.',
+    });
+  }
+  return encodeURIComponent(id);
+}

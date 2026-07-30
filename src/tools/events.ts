@@ -4,6 +4,9 @@ import { textResult } from '@chrischall/mcp-utils';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
 
+/** Reference lists served under /system/ rather than the API root. */
+const SYSTEM_LISTS = new Set(['timezones', 'countries', 'regions']);
+
 /**
  * Event lookup + reference-data tools on the documented API. `eb_event` works
  * for ANY public event by id (not just your own) — event ids are the trailing
@@ -84,8 +87,10 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       },
     },
     async ({ kind }) => {
-      // Timezones are the one list that hangs off /system/ rather than the root.
-      const path = kind === 'timezones' ? '/system/timezones/' : `/${kind}/`;
+      // timezones/countries/regions hang off /system/; the bare /countries/ and
+      // /regions/ paths 404 (verified live 2026-07-30). The taxonomy lists
+      // (categories, subcategories, formats) sit at the root.
+      const path = SYSTEM_LISTS.has(kind) ? `/system/${kind}/` : `/${kind}/`;
       const data = await client.request('GET', path);
       return textResult(data);
     }
