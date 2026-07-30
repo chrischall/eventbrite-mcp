@@ -1,11 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   buildSearchBody,
   toCompactEvent,
   DiscoveryClient,
   DEFAULT_EVENT_EXPANSIONS,
   slugCandidates,
-  extractFirstPageEvents,
+  extractBrowseShelves,
+  parseServerData,
+  toDocExpansions,
 } from '../src/discovery.js';
 import type { EventbriteTransport } from '../src/transport.js';
 
@@ -207,31 +209,58 @@ describe('DiscoveryClient.eventsByIds', () => {
 });
 
 describe('DiscoveryClient.resolvePlace', () => {
+  // resolvePlace now fetches the SSR page DIRECTLY (verified live: a plain
+  // server-side GET returns the full page). Stub global fetch so the suite
+  // never touches the network.
+  function stubFetch(status: number, body: string) {
+    const spy = vi.fn().mockResolvedValue({
+      status,
+      text: async () => body,
+    } as unknown as Response);
+    vi.stubGlobal('fetch', spy);
+    return spy;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('extracts placeId and currentPlace from the SSR page', async () => {
     const html = 'prefix {"placeId":"85928879","other":1} {"currentPlace":"Denver"} suffix';
-    const transport = mockTransport({
-      fetch: vi.fn().mockResolvedValue({ status: 200, body: html, url: '' }),
-    });
-    const client = new DiscoveryClient(transport);
+    const spy = stubFetch(200, html);
+    const client = new DiscoveryClient(mockTransport());
 
     const place = await client.resolvePlace('co--denver');
-    expect(place).toEqual({ placeId: '85928879', name: 'Denver', slug: 'co--denver' });
+    expect(place).toMatchObject({ placeId: '85928879', name: 'Denver', slug: 'co--denver' });
+    expect(spy.mock.calls[0][0]).toBe('https://www.eventbrite.com/d/co--denver/events/');
+  });
+
+  it('does not touch the bridge when the direct fetch succeeds', async () => {
+    stubFetch(200, '{"placeId":"1"}');
+    const transport = mockTransport();
+    await new DiscoveryClient(transport).resolvePlace('co--denver');
+    expect(transport.fetch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the bridge when the direct fetch throws', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    const transport = mockTransport({
+      fetch: vi.fn().mockResolvedValue({ status: 200, body: '{"placeId":"77"}', url: '' }),
+    });
+    const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
+    expect(place.placeId).toBe('77');
     expect(transport.fetch).toHaveBeenCalledWith({ path: '/d/co--denver/events/', method: 'GET' });
   });
 
   it('gives a slug-format hint on 404', async () => {
-    const transport = mockTransport({
-      fetch: vi.fn().mockResolvedValue({ status: 404, body: 'nope', url: '' }),
-    });
-    const client = new DiscoveryClient(transport);
+    stubFetch(404, 'nope');
+    const client = new DiscoveryClient(mockTransport());
     await expect(client.resolvePlace('denver')).rejects.toThrow(/Slug format|No Eventbrite browse page/);
   });
 
   it('classifies a 200 without placeId as a bot wall', async () => {
-    const transport = mockTransport({
-      fetch: vi.fn().mockResolvedValue({ status: 200, body: '<html>Whoops!</html>', url: '' }),
-    });
-    const client = new DiscoveryClient(transport);
+    stubFetch(200, '<html>Whoops!</html>');
+    const client = new DiscoveryClient(mockTransport());
     await expect(client.resolvePlace('co--denver')).rejects.toThrow(/anti-bot/i);
   });
 });
@@ -283,45 +312,68 @@ describe('slugCandidates', () => {
   });
 });
 
-describe('extractFirstPageEvents', () => {
+describe('extractBrowseShelves', () => {
+  // Shape verified live 2026-07-30 against /d/nc--charlotte/events/: events live
+  // in buckets[], each {key, name, events[]}. `search_data` does not exist and
+  // `reactQueryData` is a string.
   const ssr = (obj: unknown) =>
     `<html><script>window.__SERVER_DATA__ = ${JSON.stringify(obj)};</script></html>`;
 
-  it('harvests and compacts the embedded first page', () => {
-    const events = extractFirstPageEvents(
-      ssr({
-        search_data: {
-          events: {
-            results: [{ id: '1', name: 'Blues Night', primary_venue: { name: 'The Evening Muse' } }],
-          },
-        },
-      })
-    );
-    expect(events).toHaveLength(1);
-    expect(events?.[0]).toMatchObject({ id: '1', name: 'Blues Night', venue: 'The Evening Muse' });
+  const page = {
+    placeId: '85981333',
+    currentPlace: 'Charlotte',
+    region: 'North Carolina',
+    country: 'United States',
+    reactQueryData: 'a string, not a carrier',
+    buckets: [
+      {
+        key: 'popular_events',
+        name: 'Popular in Charlotte',
+        events: [
+          { id: '1', name: 'Dude Perfect', start_date: '2026-07-30', primary_venue: { name: 'Spectrum Center', address: { city: 'Charlotte' } } },
+        ],
+      },
+      { key: 'trending_searches', name: 'Trending searches', events: [] },
+    ],
+  };
+
+  it('projects each non-empty bucket into a shelf', () => {
+    const shelves = extractBrowseShelves(ssr(page));
+    expect(shelves).toHaveLength(1);
+    expect(shelves?.[0]).toMatchObject({ key: 'popular_events', name: 'Popular in Charlotte' });
+    expect(shelves?.[0].events[0]).toMatchObject({
+      id: '1',
+      name: 'Dude Perfect',
+      venue: 'Spectrum Center',
+      city: 'Charlotte',
+    });
   });
 
-  it('returns undefined when the marker is absent', () => {
-    expect(extractFirstPageEvents('<html>nothing here</html>')).toBeUndefined();
+  it('drops empty buckets rather than emitting hollow shelves', () => {
+    const shelves = extractBrowseShelves(ssr(page));
+    expect(shelves?.map((s) => s.key)).not.toContain('trending_searches');
   });
 
-  it('returns undefined when the embedded shape drifts, rather than throwing', () => {
-    expect(extractFirstPageEvents(ssr({ search_data: { events: {} } }))).toBeUndefined();
-    expect(extractFirstPageEvents(ssr({ unrelated: true }))).toBeUndefined();
-  });
-
-  it('survives braces inside strings without truncating the object', () => {
-    const events = extractFirstPageEvents(
-      ssr({
-        decoy: 'a } brace { inside a string',
-        search_data: { events: { results: [{ id: '9', name: 'Late {Set}' }] } },
-      })
-    );
-    expect(events).toEqual([{ id: '9', name: 'Late {Set}' }]);
+  it('returns undefined when there are no buckets at all', () => {
+    expect(extractBrowseShelves(ssr({ placeId: '1' }))).toBeUndefined();
+    expect(extractBrowseShelves('<html>nothing</html>')).toBeUndefined();
   });
 
   it('returns undefined on malformed JSON instead of throwing', () => {
-    expect(extractFirstPageEvents('__SERVER_DATA__ = {"search_data": ')).toBeUndefined();
+    expect(extractBrowseShelves('__SERVER_DATA__ = {"buckets": ')).toBeUndefined();
+  });
+
+  it('survives braces inside strings', () => {
+    const shelves = extractBrowseShelves(
+      ssr({ decoy: 'a } brace { inside', buckets: [{ key: 'k', name: 'N', events: [{ id: '9', name: 'Late {Set}' }] }] })
+    );
+    expect(shelves?.[0].events).toEqual([{ id: '9', name: 'Late {Set}' }]);
+  });
+
+  it('parseServerData exposes place context from the same payload', () => {
+    const d = parseServerData(ssr(page));
+    expect(d?.region).toBe('North Carolina');
+    expect(d?.country).toBe('United States');
   });
 });
 
@@ -353,31 +405,157 @@ describe('slugCandidates — multiple qualifiers', () => {
 });
 
 describe('DiscoveryClient.resolveLocation', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('throws a helpful error for a bare city, before any network call', async () => {
-    const fetchFn = vi.fn();
-    const client = new DiscoveryClient(mockTransport({ fetch: fetchFn }));
+    const spy = vi.fn();
+    vi.stubGlobal('fetch', spy);
+    const client = new DiscoveryClient(mockTransport());
     await expect(client.resolveLocation('Charlotte')).rejects.toThrow(/browse slug/i);
-    expect(fetchFn).not.toHaveBeenCalled();
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('falls through to the next candidate when the first slug 404s', async () => {
-    const fetchFn = vi
+    const spy = vi
       .fn()
-      .mockResolvedValueOnce({ status: 404, body: '', url: '' })
+      .mockResolvedValueOnce({ status: 404, text: async () => '' } as unknown as Response)
       .mockResolvedValueOnce({
         status: 200,
-        body: '"placeId":"999" "currentPlace":"London"',
-        url: '',
-      });
-    const client = new DiscoveryClient(mockTransport({ fetch: fetchFn }));
-    const place = await client.resolveLocation('London, UK');
+        text: async () => '{"placeId":"999"} {"currentPlace":"London"}',
+      } as unknown as Response);
+    vi.stubGlobal('fetch', spy);
+    const place = await new DiscoveryClient(mockTransport()).resolveLocation('London, UK');
     expect(place.placeId).toBe('999');
-    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it('surfaces the last error when every candidate fails', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ status: 404, body: '', url: '' });
-    const client = new DiscoveryClient(mockTransport({ fetch: fetchFn }));
-    await expect(client.resolveLocation('Nowhere, Neverland')).rejects.toThrow();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, text: async () => '' } as unknown as Response));
+    await expect(
+      new DiscoveryClient(mockTransport()).resolveLocation('Nowhere, Neverland')
+    ).rejects.toThrow();
+  });
+});
+
+
+function mockApi(impl?: (m: string, p: string, b?: unknown) => unknown) {
+  return {
+    request: vi.fn(async (m: string, p: string, b?: unknown) =>
+      impl ? impl(m, p, b) : { ok: true }
+    ),
+  } as unknown as import('../src/client.js').EventbriteClient & { request: ReturnType<typeof vi.fn> };
+}
+
+describe('toDocExpansions', () => {
+  // Verified live 2026-07-30: expand=venue,organizer,ticket_availability adds
+  // keys on the documented host; expand=primary_venue is silently ignored.
+  it('translates destination names to the documented vocabulary', () => {
+    expect(toDocExpansions(['primary_venue', 'primary_organizer', 'ticket_availability'])).toEqual([
+      'venue',
+      'organizer',
+      'ticket_availability',
+    ]);
+  });
+
+  it('drops names with no documented equivalent rather than sending them', () => {
+    expect(toDocExpansions(['image', 'event_sales_status', 'saves'])).toEqual([]);
+  });
+
+  it('passes unknown names through untouched', () => {
+    expect(toDocExpansions(['ticket_classes'])).toEqual(['ticket_classes']);
+  });
+
+  it('de-duplicates collisions', () => {
+    expect(toDocExpansions(['primary_venue', 'venue'])).toEqual(['venue']);
+  });
+});
+
+describe('DiscoveryClient — API-first routing', () => {
+  it('prefers the API for search and never touches the bridge', async () => {
+    const api = mockApi(() => ({ events: { results: [] } }));
+    const transport = mockTransport();
+    await new DiscoveryClient(transport, api).search({ q: 'blues' });
+    expect(api.request).toHaveBeenCalledWith('POST', '/destination/search/', expect.any(Object));
+    expect(transport.requestJson).not.toHaveBeenCalled();
+    expect(transport.readCookies).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the bridge when the API search fails', async () => {
+    const api = mockApi(() => {
+      throw new Error('api down');
+    });
+    const transport = mockTransport({
+      requestJson: vi
+        .fn()
+        .mockResolvedValue({ data: { events: { results: [] } }, result: { status: 200, body: '{}', url: '' } }),
+    });
+    await new DiscoveryClient(transport, api).search({ q: 'blues' });
+    expect(transport.requestJson).toHaveBeenCalled();
+  });
+
+  it('rethrows the API error when there is no bridge to fall back to', async () => {
+    const api = mockApi(() => {
+      throw new Error('api down');
+    });
+    await expect(new DiscoveryClient(null, api).search({ q: 'blues' })).rejects.toThrow('api down');
+  });
+
+  it('errors clearly when neither route exists', async () => {
+    await expect(new DiscoveryClient(null, null).search({ q: 'blues' })).rejects.toThrow(
+      /No route available/
+    );
+  });
+
+  it('passes translated expansions through on the API batch route', async () => {
+    const api = mockApi(() => ({ events: [] }));
+    await new DiscoveryClient(null, api).eventsByIds(['1', '2'], ['primary_venue', 'image']);
+    const path = api.request.mock.calls[0][1] as string;
+    expect(path).toContain('event_ids=1%2C2');
+    expect(path).toContain('expand=venue');
+    expect(path).not.toContain('primary_venue');
+    expect(path).not.toContain('image');
+  });
+
+  it('omits expand entirely when nothing survives translation', async () => {
+    const api = mockApi(() => ({ events: [] }));
+    await new DiscoveryClient(null, api).eventsByIds(['1'], ['image']);
+    expect(api.request.mock.calls[0][1]).not.toContain('expand=');
+  });
+});
+
+describe('fetchBrowsePage fallback', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const bridgePage = { status: 200, body: '{"placeId":"77"}', url: '' };
+
+  it('falls back to the bridge on a 403 WAF RESPONSE, not just a thrown error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 403, text: async () => 'denied' }));
+    const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
+    const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
+    expect(place.placeId).toBe('77');
+    expect(transport.fetch).toHaveBeenCalled();
+  });
+
+  it('falls back on a 200 interstitial that carries no placeId', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, text: async () => '<html>Whoops!</html>' }));
+    const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
+    const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
+    expect(place.placeId).toBe('77');
+  });
+
+  it('does NOT fall back on a genuine 404 — that is a real answer', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, text: async () => '' }));
+    const transport = mockTransport();
+    await expect(new DiscoveryClient(transport).resolvePlace('co--denver')).rejects.toThrow(
+      /No Eventbrite browse page/
+    );
+    expect(transport.fetch).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the bot wall when blocked and there is no bridge', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, text: async () => '<html>Whoops!</html>' }));
+    await expect(new DiscoveryClient(null).resolvePlace('co--denver')).rejects.toThrow(/anti-bot/i);
   });
 });

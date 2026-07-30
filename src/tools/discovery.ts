@@ -7,14 +7,21 @@ import type { EventbriteTransport } from '../transport.js';
 
 export interface DiscoveryDeps {
   discovery: DiscoveryClient;
-  transport: EventbriteTransport;
+  /**
+   * The fetchproxy bridge, or null where none exists (the Worker connector).
+   * Discovery itself no longer needs it — search rides the documented host with
+   * a bearer token — but eb_healthcheck diagnoses the bridge specifically, so
+   * it is only registered when there is a bridge to diagnose.
+   */
+  transport: EventbriteTransport | null;
 }
 
 /**
- * Public event discovery via the WAF-walled consumer surface — every call
- * routes through the user's signed-in browser tab (fetchproxy bridge). These
- * tools are stdio-only: the hosted connector excludes them (no browser bridge
- * exists in a Worker).
+ * Public event discovery. Verified live 2026-07-30: the documented host serves
+ * the consumer search at POST /destination/search/ with a plain bearer token —
+ * no WAF, no CSRF, no cookies — so these tools no longer require a browser and
+ * ARE registered by the hosted connector. The fetchproxy bridge remains a
+ * fallback on the stdio path.
  */
 export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): void {
   const { discovery, transport } = deps;
@@ -23,7 +30,7 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
     'eb_resolve_place',
     {
       description:
-        "Resolve a location to Eventbrite's internal place id for eb_search_events. Accepts a plain location ('Charlotte, NC', 'Berlin, Germany') or a browse slug ('nc--charlotte'). A city on its own is rejected — include the state or country. Returns {placeId, name, slug} plus firstPage, page 1 of browse results harvested for free from the same fetch.",
+        "Resolve a location to Eventbrite's internal place id for eb_search_events. Accepts a plain location ('Charlotte, NC', 'Berlin, Germany') or a browse slug ('nc--charlotte'). A city on its own is rejected — include the state or country. Returns {placeId, name, slug, region, country} plus `shelves` — curated browse shelves (Popular, This Weekend, Online) harvested free from the same fetch.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         location: z
@@ -138,9 +145,13 @@ export function registerDiscoveryTools(server: McpServer, deps: DiscoveryDeps): 
     }
   );
 
-  // eb_healthcheck — probes a small JSON endpoint through the bridge. The
-  // categories endpoint answers 200 JSON on the www host regardless of login
-  // state, so it isolates bridge problems from Eventbrite-side problems.
+  // eb_healthcheck diagnoses the BRIDGE. With no bridge (the Worker connector)
+  // there is nothing for it to report on, so it is not registered at all —
+  // better than a tool that always answers "no transport".
+  if (!transport) return;
+
+  // The categories endpoint answers 200 JSON on the www host regardless of
+  // login state, so it isolates bridge problems from Eventbrite-side problems.
   registerBridgeHealthcheckTool({
     server,
     prefix: 'eb',

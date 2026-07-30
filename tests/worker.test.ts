@@ -5,14 +5,18 @@ import { EventbriteClient } from '../src/client.js';
 import { registerAccountTools } from '../src/tools/account.js';
 import { registerEventTools } from '../src/tools/events.js';
 import { registerLookupTools } from '../src/tools/lookup.js';
+import { registerDiscoveryTools } from '../src/tools/discovery.js';
+import { DiscoveryClient } from '../src/discovery.js';
 
 // Handshake + tool-surface test for the Eventbrite Cloudflare remote
 // connector, run inside the real Workers runtime (Miniflare) via
 // `@cloudflare/vitest-pool-workers` against `wrangler.jsonc`. It proves:
 //   1. the OAuth default handler serves discovery + the login page;
 //   2. an unauthenticated `/mcp` request is rejected before any tool code runs;
-//   3. the exact registrar wiring `src/worker.ts` uses registers the REDUCED
-//      (token-API-only) tool surface — discovery tools must stay excluded;
+//   3. the exact registrar wiring `src/worker.ts` uses registers the full
+//      bearer-token surface INCLUDING discovery (verified 2026-07-30: the
+//      documented host serves the consumer search with a plain bearer token),
+//      while eb_healthcheck — a bridge diagnostic — stays excluded;
 //   4. a real outbound client request in workerd never dies with the
 //      `Illegal invocation` detached-fetch trap (fleet gotcha).
 
@@ -60,6 +64,10 @@ describe('Eventbrite Cloudflare connector — tool surface', () => {
       registerAccountTools(server, { client });
       registerEventTools(server, { client });
       registerLookupTools(server, { client });
+      registerDiscoveryTools(server, {
+        discovery: new DiscoveryClient(null, client),
+        transport: null,
+      });
     });
 
     try {
@@ -86,6 +94,9 @@ describe('Eventbrite Cloudflare connector — tool surface', () => {
           'eb_event_orders',
           'eb_event_questions',
           'eb_reference',
+          'eb_resolve_place',
+          'eb_search_events',
+          'eb_event_details',
           'eb_order',
           'eb_venue',
           'eb_venue_events',
@@ -95,8 +106,10 @@ describe('Eventbrite Cloudflare connector — tool surface', () => {
           'eb_user',
         ].sort()
       );
-      // Discovery tools need the browser bridge and must never appear here.
-      expect(names).not.toContain('eb_search_events');
+      // Discovery now rides the documented host with a bearer token, so the
+      // search tools DO belong here. eb_healthcheck must not: it diagnoses the
+      // fetchproxy bridge, which does not exist in a Worker.
+      expect(names).toContain('eb_search_events');
       expect(names).not.toContain('eb_healthcheck');
     } finally {
       await harness.close();

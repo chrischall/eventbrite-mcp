@@ -5,6 +5,8 @@ import { eventbriteAuth, type EventbriteProps } from './eventbrite-auth.js';
 import { registerAccountTools } from './tools/account.js';
 import { registerEventTools } from './tools/events.js';
 import { registerLookupTools } from './tools/lookup.js';
+import { registerDiscoveryTools } from './tools/discovery.js';
+import { DiscoveryClient } from './discovery.js';
 
 // The Cloudflare remote-connector entrypoint: wires the token-API tool
 // registrars (the same ones `src/index.ts` uses) into
@@ -13,12 +15,16 @@ import { registerLookupTools } from './tools/lookup.js';
 // (`src/eventbrite-auth.ts`), and `buildClient` mints a per-user
 // `EventbriteClient` so concurrent sessions never share a token.
 //
-// REDUCED connector, by design: the discovery tools
-// (eb_search_events / eb_resolve_place / eb_event_details / eb_healthcheck)
-// are EXCLUDED — they require the fetchproxy browser bridge (Transporter
-// extension + a signed-in tab), which cannot exist in a Worker. Keeping their
-// registrar out of this module also keeps `@fetchproxy/server` out of the
-// Worker bundle entirely. Do not add `registerDiscoveryTools` here.
+// FULL bearer-token surface, including discovery. Verified live 2026-07-30:
+// the documented host serves the consumer search at POST /destination/search/
+// and batch detail at GET /events/?event_ids=… with a plain bearer token — no
+// WAF, no CSRF, no browser — so discovery works here. `DiscoveryClient` is
+// built with a null transport: there is no fetchproxy bridge in a Worker and
+// therefore no fallback route.
+//
+// `eb_healthcheck` is the one discovery tool still excluded: it diagnoses the
+// BRIDGE, so with no bridge there is nothing for it to report on.
+// `registerDiscoveryTools` skips it when `transport` is null.
 //
 // Eventbrite is STATELESS — no local cache, so only the per-session MCP agent
 // Durable Object is declared (no cache DO).
@@ -32,6 +38,14 @@ const { Agent, handler } = createConnector<EventbriteProps, EventbriteClient>({
     (server, client) => registerAccountTools(server, { client }),
     (server, client) => registerEventTools(server, { client }),
     (server, client) => registerLookupTools(server, { client }),
+    // Discovery now rides the documented host with the user's own bearer token
+    // (no browser bridge), so it works inside a Worker. `transport` is null —
+    // there is no fetchproxy here, and no fallback route.
+    (server, client) =>
+      registerDiscoveryTools(server, {
+        discovery: new DiscoveryClient(null, client),
+        transport: null,
+      }),
   ],
 });
 
