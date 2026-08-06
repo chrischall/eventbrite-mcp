@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.0...v0.1.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **deps:** move to @fetchproxy/server 2.0.0 for the v3 handshake ([#15](https://github.com/chrischall/eventbrite-mcp/issues/15)) ([e659c0d](https://github.com/chrischall/eventbrite-mcp/commit/e659c0d807fac5e977e43649a183a22664b136d6))
+
 ## 0.1.0 (2026-07-30)
 
 
