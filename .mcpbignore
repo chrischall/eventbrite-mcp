@@ -20,8 +20,6 @@ dist/*
 # Build config / dev tooling
 tsconfig.json
 vitest.config.ts
-vitest.workers.config.ts
-wrangler.jsonc
 package-lock.json
 esbuild.config.*
 
@@ -52,7 +50,6 @@ scripts/
 # CI / local tooling
 .github/
 .claude/
-.wrangler/
 
 # Runtime secrets
 .env

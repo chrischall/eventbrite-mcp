@@ -7,7 +7,7 @@ import type { EventbriteTransport } from '../transport.js';
 export interface DiscoveryDeps {
   discovery: DiscoveryClient;
   /**
-   * The fetchproxy bridge, or null where none exists (the Worker connector).
+   * The fetchproxy bridge, or null where none exists.
    * Discovery itself no longer needs it — search rides the documented host with
    * a bearer token — but eb_healthcheck diagnoses the bridge specifically, so
    * it is only registered when there is a bridge to diagnose.
@@ -19,7 +19,7 @@ export interface DiscoveryDeps {
  * Public event discovery. Verified live 2026-07-30: the documented host serves
  * the consumer search at POST /destination/search/ with a plain bearer token —
  * no WAF, no CSRF, no cookies — so these tools no longer require a browser and
- * ARE registered by the hosted connector. The fetchproxy bridge remains a
+ * ARE registered without a bridge. The fetchproxy bridge remains a
  * fallback on the stdio path.
  */
 export async function registerDiscoveryTools(
@@ -147,13 +147,13 @@ export async function registerDiscoveryTools(
     }
   );
 
-  // eb_healthcheck diagnoses the BRIDGE. With no bridge (the Worker connector)
+  // eb_healthcheck diagnoses the BRIDGE. With no bridge
   // there is nothing for it to report on, so it is not registered at all —
   // better than a tool that always answers "no transport".
   if (!transport) return;
 
   // Imported lazily, AFTER the guard: a static import would drag the fetchproxy
-  // helper into the Worker bundle where it can never run.
+  // helper into a bundle where it can never run.
   const { registerBridgeHealthcheckTool } = await import('@chrischall/mcp-utils/fetchproxy');
 
   // The categories endpoint answers 200 JSON on the www host regardless of

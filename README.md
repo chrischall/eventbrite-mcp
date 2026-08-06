@@ -79,20 +79,12 @@ Search flow: `eb_resolve_place {location: "Charlotte, NC"}` →
 `eb_resolve_place` also accepts a raw slug (`nc--charlotte`). A bare city with
 no state or country is rejected rather than guessed.
 
-## Hosted connector
-
-`src/worker.ts` deploys the token-API tools as a Cloudflare Worker remote
-connector for claude.ai (OAuth login collects your Eventbrite token). The
-discovery tools are **excluded** there — the browser bridge doesn't exist in a
-Worker. See `docs/DEPLOY-CONNECTOR.md`.
-
 ## Development
 
 ```sh
 npm install
 npm test          # node suite
 npm run build     # tsc + esbuild bundle
-npm run worker:test
 ```
 
 API shape notes (captured + verified): `docs/EVENTBRITE-API.md`. A

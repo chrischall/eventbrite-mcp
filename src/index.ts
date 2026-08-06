@@ -16,7 +16,7 @@ import { registerDiscoveryTools } from './tools/discovery.js';
 //    documented host serves the consumer search at
 //    POST /destination/search/ with a plain bearer token — no WAF, no CSRF,
 //    no browser. That is now the primary route, so discovery works in a
-//    Worker too. The fetchproxy bridge (port 37149, bound lazily) is kept as
+//    a bridge-less deployment too. The bridge (port 37149, bound lazily) is kept as
 //    a FALLBACK for when no token is configured or the API route refuses.
 const transport = new FetchproxyTransport({
   version: VERSION,

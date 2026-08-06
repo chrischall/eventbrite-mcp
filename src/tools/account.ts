@@ -6,7 +6,7 @@ import { enc, qs, schemaContinuation } from './params.js';
 
 /**
  * Account-side tools on the documented API (`eventbriteapi.com/v3`, bearer
- * token). Transport-neutral: the hosted connector registers these with a
+ * token). Transport-neutral: a hosted deployment registers these with a
  * per-user client.
  */
 export function registerAccountTools(server: McpServer, deps: { client: EventbriteClient }): void {
