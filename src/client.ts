@@ -5,9 +5,9 @@ import { loadDotenvSafely, readEnvVar, createApiClient, type ApiClient } from '@
 // Load .env for local dev; silently skip if dotenv is unavailable (e.g. mcpb
 // bundle). `loadDotenvSafely` swallows a missing dotenv module and never lets
 // .env override a host-provided value.
-// The try/catch guards the Cloudflare Worker runtime, where `import.meta.url`
+// The try/catch guards a non-Node runtime, where `import.meta.url`
 // is undefined and `fileURLToPath(undefined)` would throw at module init
-// (Worker startup validation) — there is no filesystem / .env to load there.
+// startup validation in such a runtime — and there is no .env to load there.
 try {
   const dir = dirname(fileURLToPath(import.meta.url));
   await loadDotenvSafely({ path: join(dir, '..', '.env'), override: false });
@@ -35,10 +35,10 @@ export class EventbriteClient {
    * host's install-time smoke test) when EVENTBRITE_TOKEN isn't set yet.
    * Tool calls re-raise the error at request time.
    *
-   * Optional constructor seam: the hosted Cloudflare connector builds one
+   * Optional constructor seam: a hosted per-user deployment builds one
    * client per request with that user's `token` injected. The stdio path
    * passes no options, so the token resolves from the environment.
-   * The constructor is PURE (no I/O, no randomness) — it is run in Worker
+   * The constructor is PURE (no I/O, no randomness) — it may run in module
    * global scope via the module singleton below.
    */
   constructor(opts?: { token?: string }) {

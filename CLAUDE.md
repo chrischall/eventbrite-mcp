@@ -32,10 +32,8 @@ them here):
 - All request/response shapes are pinned in `docs/EVENTBRITE-API.md` with
   their verification status — keep that file's status notes truthful when
   endpoints change, and re-capture before coding new ones.
-- The hosted connector (`src/worker.ts`) registers the account/event/lookup
-  registrars AND discovery (`DiscoveryClient(null, client)` — API route only,
-  no bridge). `eb_healthcheck` stays out: it diagnoses the bridge, which does
-  not exist in a Worker. `registerDiscoveryTools` skips it when `transport` is
-  null.
+- `registerDiscoveryTools` takes the fetchproxy bridge or `null`. With `null`
+  it registers the API-route discovery tools but skips `eb_healthcheck`, which
+  diagnoses the bridge and has nothing to report without one.
 - Version lives in `src/version.ts` alone (single `x-release-please-version`
-  marker); `index.ts` and `worker.ts` import it.
+  marker); `index.ts` imports it.

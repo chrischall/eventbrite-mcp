@@ -24,7 +24,7 @@ function isUsableBrowsePage(result: FetchResult): boolean {
   return typeof result.body === 'string' && PLACE_ID_RE.test(result.body);
 }
 
-/** `fetch` with an AbortController deadline; called directly for workerd. */
+/** `fetch` with an AbortController deadline. */
 async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
@@ -264,7 +264,7 @@ export class DiscoveryClient {
    * 1. `api` — `POST eventbriteapi.com/v3/destination/search/` with a bearer
    *    token. Verified live 2026-07-30: works with a private OR public token,
    *    no WAF, no CSRF, no cookies. This is the default because it needs no
-   *    browser and therefore works inside a Worker.
+   *    browser and therefore works without the bridge.
    * 2. `transport` — the fetchproxy bridge through a signed-in tab. Retained as
    *    a fallback for when no token is configured, or the API route refuses.
    *
