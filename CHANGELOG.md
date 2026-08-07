@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.1...v0.1.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* **connector:** finish the retirement sweep ([#20](https://github.com/chrischall/eventbrite-mcp/issues/20)) ([52b426c](https://github.com/chrischall/eventbrite-mcp/commit/52b426c4aabfbf35ea6d6f1ef6426e3893ab6e8e))
+
+
+### Refactor
+
+* **connector:** retire the standalone Cloudflare Worker connector ([#17](https://github.com/chrischall/eventbrite-mcp/issues/17)) ([bfa36eb](https://github.com/chrischall/eventbrite-mcp/commit/bfa36eb6d28778a0cab46da48d6b60bca08a7553))
+
 ## [0.1.1](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.0...v0.1.1) (2026-08-06)
 
 
