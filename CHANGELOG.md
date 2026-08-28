@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.2...v0.1.3) (2026-08-28)
+
+
+### Bug Fixes
+
+* **egress:** declare only the hosts the server process dials in mint.yaml ([#31](https://github.com/chrischall/eventbrite-mcp/issues/31)) ([84fdae7](https://github.com/chrischall/eventbrite-mcp/commit/84fdae772b051fc887118d700d4ed730b3b81864))
+
 ## [0.1.2](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.1...v0.1.2) (2026-08-07)
 
 

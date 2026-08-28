@@ -3,7 +3,7 @@
   "manifest_version": "0.3",
   "name": "eventbrite-mcp",
   "display_name": "Eventbrite",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Eventbrite for Claude — your tickets and orders, organizer data, and public event discovery",
   "author": {
     "name": "Chris Chall",
