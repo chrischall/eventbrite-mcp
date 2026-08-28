@@ -31,7 +31,17 @@ state:
     API refuses bridge without it.
 egress:
   allow:
-    # Only hosts the SERVER process actually fetches.
-    - eventbrite.com
-    - www.eventbrite.com
+    # Only hosts the SERVER process actually fetches; hosts that appear
+    # solely in a URL this server builds and returns are excluded. Matching
+    # is exact (an apex entry does not cover subdomains), and the proxy
+    # follows no redirects — neither host below redirects (checked 2026-08-28).
+    # Token API (src/client.ts): every account/organizer/lookup tool is a
+    # direct server-side fetch of the documented API.
     - www.eventbriteapi.com
+    # SSR browse pages (src/discovery.ts fetchBrowsePage): resolvePlace GETs
+    # `/d/<slug>/events/` directly first and only falls back to the bridge
+    # when the WAF blocks. The destination-search API on the same host is
+    # bridge-only — dialled by the user's tab, not by this process — so it
+    # adds no host; the bare apex `eventbrite.com` is the bridge's declared
+    # domain / cookie scope, never a dial, and is deliberately absent.
+    - www.eventbrite.com
