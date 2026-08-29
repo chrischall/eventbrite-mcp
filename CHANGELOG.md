@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.3...v0.2.0) (2026-08-29)
+
+
+### Features
+
+* **deps:** take @fetchproxy/server 2.2.0 so the concentrator can bind its sandbox address ([#33](https://github.com/chrischall/eventbrite-mcp/issues/33)) ([8e06186](https://github.com/chrischall/eventbrite-mcp/commit/8e061868c7519bd6cced57890f7a283d519d8aba))
+
 ## [0.1.3](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.2...v0.1.3) (2026-08-28)
 
 
