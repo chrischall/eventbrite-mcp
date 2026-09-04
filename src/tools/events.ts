@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { minifiedResult } from '@chrischall/mcp-utils';
 import { viewArg, viewResponse } from '../view.js';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
@@ -115,14 +114,15 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
           .optional()
           .describe('ISO 8601 UTC timestamp — only attendees changed since then'),
         continuation: schemaContinuation,
+        view: viewArg(),
       },
     },
-    async ({ event_id, status, changed_since, continuation }) => {
+    async ({ event_id, status, changed_since, continuation, view }) => {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (changed_since) params.set('changed_since', changed_since);
       if (continuation) params.set('continuation', continuation);
-      return minifiedResult(
+      return viewResponse(view, 
         await client.request('GET', `/events/${enc(event_id)}/attendees/${qs(params)}`)
       );
     }
@@ -136,10 +136,11 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       inputSchema: {
         event_id: z.string().describe('Numeric event id'),
         attendee_id: z.string().describe('Numeric attendee id'),
+        view: viewArg(),
       },
     },
-    async ({ event_id, attendee_id }) =>
-      minifiedResult(
+    async ({ event_id, attendee_id, view }) =>
+      viewResponse(view, 
         await client.request('GET', `/events/${enc(event_id)}/attendees/${enc(attendee_id)}/`)
       )
   );
@@ -157,14 +158,15 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
           .optional()
           .describe('ISO 8601 UTC timestamp — only orders changed since then'),
         continuation: schemaContinuation,
+        view: viewArg(),
       },
     },
-    async ({ event_id, status, changed_since, continuation }) => {
+    async ({ event_id, status, changed_since, continuation, view }) => {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (changed_since) params.set('changed_since', changed_since);
       if (continuation) params.set('continuation', continuation);
-      return minifiedResult(
+      return viewResponse(view, 
         await client.request('GET', `/events/${enc(event_id)}/orders/${qs(params)}`)
       );
     }
@@ -179,10 +181,11 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       inputSchema: {
         event_id: z.string().describe('Numeric event id'),
         ticket_class_id: z.string().describe('Numeric ticket class id'),
+        view: viewArg(),
       },
     },
-    async ({ event_id, ticket_class_id }) =>
-      minifiedResult(
+    async ({ event_id, ticket_class_id, view }) =>
+      viewResponse(view, 
         await client.request(
           'GET',
           `/events/${enc(event_id)}/ticket_classes/${enc(ticket_class_id)}/`
@@ -202,10 +205,11 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
           .boolean()
           .optional()
           .describe("Fetch the standard question bank instead of the event's custom questions"),
+        view: viewArg(),
       },
     },
-    async ({ event_id, canned }) =>
-      minifiedResult(
+    async ({ event_id, canned, view }) =>
+      viewResponse(view, 
         await client.request(
           'GET',
           `/events/${enc(event_id)}/${canned ? 'canned_questions' : 'questions'}/`
