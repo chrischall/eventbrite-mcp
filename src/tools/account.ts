@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { minifiedResult } from '@chrischall/mcp-utils';
 import { viewArg, viewResponse } from '../view.js';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
@@ -179,12 +178,14 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         inputSchema: {
           org_id: z.string().describe('Organization id (from eb_my_organizations)'),
           continuation: schemaContinuation,
+          view: viewArg(),
         },
       },
-      async ({ org_id, continuation }) => {
+      async ({ org_id, continuation, view }) => {
         const params = new URLSearchParams();
         if (continuation) params.set('continuation', continuation);
-        return minifiedResult(
+        return viewResponse(
+          view,
           await client.request('GET', `/organizations/${enc(org_id)}/${noun}/${qs(params)}`)
         );
       }
