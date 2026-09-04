@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/chrischall/eventbrite-mcp/compare/v0.2.0...v0.3.0) (2026-09-04)
+
+
+### Features
+
+* **tools:** compact by default — strip media URLs, and minify every response ([#52](https://github.com/chrischall/eventbrite-mcp/issues/52)) ([bd14b06](https://github.com/chrischall/eventbrite-mcp/commit/bd14b06b86f7e6418caea99ccd3520843d2d78fa))
+
+
+### Bug Fixes
+
+* **deps:** pick up @chrischall/mcp-utils 0.23.2 ([#49](https://github.com/chrischall/eventbrite-mcp/issues/49)) ([ac6aada](https://github.com/chrischall/eventbrite-mcp/commit/ac6aadafcfa32aeafc64b8451f53ae0ad12748c4))
+
 ## [0.2.0](https://github.com/chrischall/eventbrite-mcp/compare/v0.1.3...v0.2.0) (2026-08-29)
 
 
