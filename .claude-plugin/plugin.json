@@ -1,7 +1,7 @@
 {
   "name": "eventbrite-mcp",
   "displayName": "Eventbrite",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server for Eventbrite — your tickets and orders, organizer data, and public event discovery",
   "author": {
     "name": "Chris Hall",
