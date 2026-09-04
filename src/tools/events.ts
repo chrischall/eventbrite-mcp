@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult } from '@chrischall/mcp-utils';
+import { minifiedResult } from '@chrischall/mcp-utils';
+import { viewArg, viewResponse } from '../view.js';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
 
@@ -22,6 +23,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
         'Get an Eventbrite event by id (works for any public event, not just yours). Event ids are the trailing digits in an event URL (…-tickets-<id>).',
       annotations: { readOnlyHint: true },
       inputSchema: {
+        view: viewArg(),
         event_id: z.string().describe('Numeric event id'),
         expand: z
           .string()
@@ -31,13 +33,13 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
           ),
       },
     },
-    async ({ event_id, expand }) => {
+    async ({ event_id, expand, view }) => {
       const exp = expand ?? 'venue,organizer,ticket_availability';
       const data = await client.request(
         'GET',
         `/events/${encodeURIComponent(event_id)}/?expand=${encodeURIComponent(exp)}`
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -47,14 +49,15 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       description:
         "List an event's ticket classes (name, cost, free/paid, on-sale status).",
       annotations: { readOnlyHint: true },
-      inputSchema: { event_id: z.string().describe('Numeric event id') },
+      inputSchema: {
+        view: viewArg(), event_id: z.string().describe('Numeric event id') },
     },
-    async ({ event_id }) => {
+    async ({ event_id, view }) => {
       const data = await client.request(
         'GET',
         `/events/${encodeURIComponent(event_id)}/ticket_classes/`
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -63,14 +66,15 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     {
       description: "Get an event's full HTML description.",
       annotations: { readOnlyHint: true },
-      inputSchema: { event_id: z.string().describe('Numeric event id') },
+      inputSchema: {
+        view: viewArg(), event_id: z.string().describe('Numeric event id') },
     },
-    async ({ event_id }) => {
+    async ({ event_id, view }) => {
       const data = await client.request(
         'GET',
         `/events/${encodeURIComponent(event_id)}/description/`
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -81,18 +85,19 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
         'List Eventbrite reference data: categories (103=Music, 101=Business, 110=Food & Drink, …), subcategories, formats, timezones, countries or regions. Category/subcategory/format ids feed eb_search_events filters.',
       annotations: { readOnlyHint: true },
       inputSchema: {
+        view: viewArg(),
         kind: z
           .enum(['categories', 'subcategories', 'formats', 'timezones', 'countries', 'regions'])
           .describe('Which list to fetch'),
       },
     },
-    async ({ kind }) => {
+    async ({ kind, view }) => {
       // timezones/countries/regions hang off /system/; the bare /countries/ and
       // /regions/ paths 404 (verified live 2026-07-30). The taxonomy lists
       // (categories, subcategories, formats) sit at the root.
       const path = SYSTEM_LISTS.has(kind) ? `/system/${kind}/` : `/${kind}/`;
       const data = await client.request('GET', path);
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -117,7 +122,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       if (status) params.set('status', status);
       if (changed_since) params.set('changed_since', changed_since);
       if (continuation) params.set('continuation', continuation);
-      return textResult(
+      return minifiedResult(
         await client.request('GET', `/events/${enc(event_id)}/attendees/${qs(params)}`)
       );
     }
@@ -134,7 +139,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       },
     },
     async ({ event_id, attendee_id }) =>
-      textResult(
+      minifiedResult(
         await client.request('GET', `/events/${enc(event_id)}/attendees/${enc(attendee_id)}/`)
       )
   );
@@ -159,7 +164,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       if (status) params.set('status', status);
       if (changed_since) params.set('changed_since', changed_since);
       if (continuation) params.set('continuation', continuation);
-      return textResult(
+      return minifiedResult(
         await client.request('GET', `/events/${enc(event_id)}/orders/${qs(params)}`)
       );
     }
@@ -177,7 +182,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       },
     },
     async ({ event_id, ticket_class_id }) =>
-      textResult(
+      minifiedResult(
         await client.request(
           'GET',
           `/events/${enc(event_id)}/ticket_classes/${enc(ticket_class_id)}/`
@@ -200,7 +205,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       },
     },
     async ({ event_id, canned }) =>
-      textResult(
+      minifiedResult(
         await client.request(
           'GET',
           `/events/${enc(event_id)}/${canned ? 'canned_questions' : 'questions'}/`

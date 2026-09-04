@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult } from '@chrischall/mcp-utils';
+import { minifiedResult } from '@chrischall/mcp-utils';
+import { viewArg, viewResponse } from '../view.js';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
 
@@ -17,11 +18,14 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description:
         "Get the authenticated Eventbrite user's profile (id, name, primary email).",
+      inputSchema: {
+        view: viewArg(),
+      },
       annotations: { readOnlyHint: true },
     },
-    async () => {
+    async ({ view }) => {
       const data = await client.request('GET', '/users/me/');
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -32,6 +36,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         "List the authenticated user's ticket orders (attendee side), with the event expanded. time_filter narrows to upcoming or past events.",
       annotations: { readOnlyHint: true },
       inputSchema: {
+        view: viewArg(),
         time_filter: z
           .enum(['all', 'current_future', 'past'])
           .optional()
@@ -39,12 +44,12 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         continuation: schemaContinuation,
       },
     },
-    async ({ time_filter, continuation }) => {
+    async ({ time_filter, continuation, view }) => {
       const params = new URLSearchParams({ expand: 'event' });
       if (time_filter) params.set('time_filter', time_filter);
       if (continuation) params.set('continuation', continuation);
       const data = await client.request('GET', `/users/me/orders/?${params}`);
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -54,13 +59,14 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description:
         'List the organizations the authenticated user belongs to (organizer side). Use the returned org id with eb_org_events / eb_org_attendees / eb_org_orders.',
       annotations: { readOnlyHint: true },
-      inputSchema: { continuation: schemaContinuation },
+      inputSchema: {
+        view: viewArg(), continuation: schemaContinuation },
     },
-    async ({ continuation }) => {
+    async ({ continuation, view }) => {
       const params = new URLSearchParams();
       if (continuation) params.set('continuation', continuation);
       const data = await client.request('GET', `/users/me/organizations/${qs(params)}`);
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -70,6 +76,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description: "List an organization's events (as organizer), optionally filtered by status.",
       annotations: { readOnlyHint: true },
       inputSchema: {
+        view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
         status: z
           .enum(['all', 'live', 'draft', 'started', 'ended', 'completed', 'canceled'])
@@ -81,7 +88,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         continuation: schemaContinuation,
       },
     },
-    async ({ org_id, status, order_by, continuation }) => {
+    async ({ org_id, status, order_by, continuation, view }) => {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (order_by) params.set('order_by', order_by);
@@ -90,7 +97,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         'GET',
         `/organizations/${enc(org_id)}/events/${qs(params)}`
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -100,6 +107,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description: "List attendees across an organization's events (organizer side).",
       annotations: { readOnlyHint: true },
       inputSchema: {
+        view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
         status: z
           .enum(['attending', 'not_attending', 'unpaid'])
@@ -108,7 +116,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         continuation: schemaContinuation,
       },
     },
-    async ({ org_id, status, continuation }) => {
+    async ({ org_id, status, continuation, view }) => {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (continuation) params.set('continuation', continuation);
@@ -116,7 +124,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         'GET',
         `/organizations/${enc(org_id)}/attendees/${qs(params)}`
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -126,18 +134,19 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description: "List orders across an organization's events (organizer side).",
       annotations: { readOnlyHint: true },
       inputSchema: {
+        view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
         continuation: schemaContinuation,
       },
     },
-    async ({ org_id, continuation }) => {
+    async ({ org_id, continuation, view }) => {
       const params = new URLSearchParams();
       if (continuation) params.set('continuation', continuation);
       const data = await client.request(
         'GET',
         `/organizations/${enc(org_id)}/orders/${qs(params)}`
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
@@ -175,7 +184,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       async ({ org_id, continuation }) => {
         const params = new URLSearchParams();
         if (continuation) params.set('continuation', continuation);
-        return textResult(
+        return minifiedResult(
           await client.request('GET', `/organizations/${enc(org_id)}/${noun}/${qs(params)}`)
         );
       }
@@ -208,7 +217,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       if (event_status) params.set('event_status', event_status);
       if (group_by) params.set('group_by', group_by);
       if (continuation) params.set('continuation', continuation);
-      return textResult(
+      return minifiedResult(
         await client.request('GET', `/organizations/${enc(org_id)}/reports/${kind}/${qs(params)}`)
       );
     }

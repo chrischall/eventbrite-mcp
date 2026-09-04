@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult } from '@chrischall/mcp-utils';
+import { minifiedResult } from '@chrischall/mcp-utils';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation, schemaEventStatus } from './params.js';
 
@@ -32,7 +32,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     async ({ order_id, expand }) => {
       const params = new URLSearchParams();
       if (expand) params.set('expand', expand);
-      return textResult(await client.request('GET', `/orders/${enc(order_id)}/${qs(params)}`));
+      return minifiedResult(await client.request('GET', `/orders/${enc(order_id)}/${qs(params)}`));
     }
   );
 
@@ -44,7 +44,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
       annotations: { readOnlyHint: true },
       inputSchema: { venue_id: z.string().describe('Numeric venue id') },
     },
-    async ({ venue_id }) => textResult(await client.request('GET', `/venues/${enc(venue_id)}/`))
+    async ({ venue_id }) => minifiedResult(await client.request('GET', `/venues/${enc(venue_id)}/`))
   );
 
   server.registerTool(
@@ -62,7 +62,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (continuation) params.set('continuation', continuation);
-      return textResult(
+      return minifiedResult(
         await client.request('GET', `/venues/${enc(venue_id)}/events/${qs(params)}`)
       );
     }
@@ -77,7 +77,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
       inputSchema: { organizer_id: z.string().describe('Numeric organizer id') },
     },
     async ({ organizer_id }) =>
-      textResult(await client.request('GET', `/organizers/${enc(organizer_id)}/`))
+      minifiedResult(await client.request('GET', `/organizers/${enc(organizer_id)}/`))
   );
 
   server.registerTool(
@@ -98,7 +98,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
       if (status) params.set('status', status);
       if (order_by) params.set('order_by', order_by);
       if (continuation) params.set('continuation', continuation);
-      return textResult(
+      return minifiedResult(
         await client.request('GET', `/organizers/${enc(organizer_id)}/events/${qs(params)}`)
       );
     }
@@ -120,7 +120,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
       const params = new URLSearchParams();
       if (status) params.set('status', status);
       if (continuation) params.set('continuation', continuation);
-      return textResult(
+      return minifiedResult(
         await client.request('GET', `/series/${enc(series_id)}/events/${qs(params)}`)
       );
     }
@@ -134,6 +134,6 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
       annotations: { readOnlyHint: true },
       inputSchema: { user_id: z.string().describe('Numeric user id') },
     },
-    async ({ user_id }) => textResult(await client.request('GET', `/users/${enc(user_id)}/`))
+    async ({ user_id }) => minifiedResult(await client.request('GET', `/users/${enc(user_id)}/`))
   );
 }

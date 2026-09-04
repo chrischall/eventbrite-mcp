@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { textResult } from '@chrischall/mcp-utils';
+import { minifiedResult } from '@chrischall/mcp-utils';
+import { viewArg, viewResponse } from '../view.js';
 import { DiscoveryClient, toCompactEvent } from '../discovery.js';
 import type { EventbriteTransport } from '../transport.js';
 
@@ -35,15 +36,16 @@ export async function registerDiscoveryTools(
         "Resolve a location to Eventbrite's internal place id for eb_search_events. Accepts a plain location ('Charlotte, NC', 'Berlin, Germany') or a browse slug ('nc--charlotte'). A city on its own is rejected — include the state or country. Returns {placeId, name, slug, region, country} plus `shelves` — curated browse shelves (Popular, This Weekend, Online) harvested free from the same fetch.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
+        view: viewArg(),
         location: z
           .string()
           .min(2)
           .describe("Location, e.g. 'Charlotte, NC', 'Berlin, Germany', or the slug 'nc--charlotte'"),
       },
     },
-    async ({ location }) => {
+    async ({ location, view }) => {
       const place = await discovery.resolveLocation(location);
-      return textResult(place);
+      return viewResponse(view, place);
     }
   );
 
@@ -111,14 +113,14 @@ export async function registerDiscoveryTools(
           console.error(
             '[eventbrite-mcp] destination search response missing events.results — returning raw response'
           );
-          return textResult(data);
+          return minifiedResult(data);
         }
-        return textResult({
+        return minifiedResult({
           pagination: data.events?.pagination,
           results: results.map(toCompactEvent),
         });
       }
-      return textResult(data);
+      return minifiedResult(data);
     }
   );
 
@@ -129,6 +131,7 @@ export async function registerDiscoveryTools(
         "Batch-fetch public event details by id. Uses your bearer token by default, falling back to the browser bridge when no token is configured. For ticket-class detail prefer eb_ticket_classes.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
+        view: viewArg(),
         event_ids: z.array(z.string()).min(1).max(20).describe('Numeric event ids'),
         expand: z
           .string()
@@ -138,12 +141,12 @@ export async function registerDiscoveryTools(
           ),
       },
     },
-    async ({ event_ids, expand }) => {
+    async ({ event_ids, expand, view }) => {
       const data = await discovery.eventsByIds(
         event_ids,
         expand ? expand.split(',').map((s) => s.trim()) : undefined
       );
-      return textResult(data);
+      return viewResponse(view, data);
     }
   );
 
