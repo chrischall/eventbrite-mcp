@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { minifiedResult } from '@chrischall/mcp-utils';
-import { viewArg, viewResponse } from '../view.js';
+import { resolveView } from '@chrischall/mcp-utils';
+import { EB_VIEWS, viewArg, viewResponse } from '../view.js';
 import { DiscoveryClient, toCompactEvent } from '../discovery.js';
 import type { EventbriteTransport } from '../transport.js';
 
@@ -23,6 +23,15 @@ export interface DiscoveryDeps {
  * ARE registered without a bridge. The fetchproxy bridge remains a
  * fallback on the stdio path.
  */
+/**
+ * `eb_search_events` is the ONE tool here whose compact rung is a real field
+ * projection (`toCompactEvent`) rather than the server-wide media strip, so it
+ * names what it keeps instead of borrowing the generic note.
+ */
+const SEARCH_NOTE =
+  'compact returns { id, name, start date/time, timezone, venue, city, online flag, free/sold-out flags, organizer, summary, url } per event; ' +
+  '"full" returns Eventbrite\'s whole search envelope, every field included.';
+
 export async function registerDiscoveryTools(
   server: McpServer,
   deps: DiscoveryDeps
@@ -53,7 +62,7 @@ export async function registerDiscoveryTools(
     'eb_search_events',
     {
       description:
-        'Search public Eventbrite events (the consumer search absent from the documented API). Resolve the location to a place id first with eb_resolve_place. Filters: keyword, dates, category/subcategory/format ids (see eb_reference), free/paid, online-only. Set compact=true for slim results suited to browsing/ranking.',
+        'Search public Eventbrite events (the consumer search absent from the documented API). Resolve the location to a place id first with eb_resolve_place. Filters: keyword, dates, category/subcategory/format ids (see eb_reference), free/paid, online-only. Answers with the slim per-event projection by default; pass view:"full" for Eventbrite\'s whole search envelope.',
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         q: z.string().optional().describe('Keyword query'),
@@ -78,10 +87,7 @@ export async function registerDiscoveryTools(
           .array(z.enum(['places_borough', 'places_neighborhood']))
           .optional()
           .describe('Facet buckets to aggregate alongside results'),
-        compact: z
-          .boolean()
-          .optional()
-          .describe('Return slim event summaries instead of full records (default false)'),
+        view: viewArg(SEARCH_NOTE),
       },
     },
     async (args) => {
@@ -105,22 +111,22 @@ export async function registerDiscoveryTools(
         pageSize: args.page_size,
         aggs: args.aggs,
       });
-      if (args.compact) {
-        const results = data.events?.results;
-        // Drift fallback: if the envelope isn't the shape we know, return the
-        // raw response rather than an empty/wrong projection.
-        if (!Array.isArray(results)) {
-          console.error(
-            '[eventbrite-mcp] destination search response missing events.results — returning raw response'
-          );
-          return minifiedResult(data);
-        }
-        return minifiedResult({
-          pagination: data.events?.pagination,
-          results: results.map(toCompactEvent),
-        });
+      if (resolveView(args.view, EB_VIEWS) === 'full') return viewResponse('full', data);
+      const results = data.events?.results;
+      // Drift fallback: if the envelope isn't the shape we know, hand back the
+      // raw response rather than an empty or half-filled projection — the same
+      // rule `projectOrRaw` applies, because a record with holes in it is
+      // indistinguishable from "there was nothing there".
+      if (!Array.isArray(results)) {
+        console.error(
+          '[eventbrite-mcp] destination search response missing events.results — returning raw response'
+        );
+        return viewResponse('full', data);
       }
-      return minifiedResult(data);
+      return viewResponse('full', {
+        pagination: data.events?.pagination,
+        results: results.map(toCompactEvent),
+      });
     }
   );
 

@@ -116,3 +116,65 @@ describe('path-segment safety', () => {
     expect(client.request.mock.calls[0][1]).toBe('/orders/1993024228117/');
   });
 });
+
+/**
+ * End-to-end `view` wiring, through the real client RPC path.
+ *
+ * `tests/view.test.ts` unit-tests `viewResponse` in isolation, which proves the
+ * helper works and nothing about whether a tool reaches it. #52 shipped twelve
+ * tools wired and fourteen not, and every unit test still passed.
+ */
+describe('view wiring, end to end', () => {
+  let harness: Awaited<ReturnType<typeof createTestHarness>> | undefined;
+
+  afterEach(async () => {
+    if (harness) await harness.close();
+    harness = undefined;
+  });
+
+  const WITH_LOGO = { id: '7', name: 'Org', logo: { url: 'https://img.evbuc.com/x.jpg' } };
+
+  it('strips the logo on the default rung', async () => {
+    const client = { request: vi.fn().mockResolvedValue(WITH_LOGO) } as unknown as EventbriteClient;
+    harness = await harnessFor(client);
+    const body = JSON.parse(
+      ((await harness.callTool('eb_organizer', { organizer_id: '7' })) as {
+        content: Array<{ text: string }>;
+      }).content[0].text,
+    );
+    expect(body).toEqual({ id: '7', name: 'Org' });
+  });
+
+  it('keeps it on full', async () => {
+    const client = { request: vi.fn().mockResolvedValue(WITH_LOGO) } as unknown as EventbriteClient;
+    harness = await harnessFor(client);
+    const body = JSON.parse(
+      ((await harness.callTool('eb_organizer', {
+        organizer_id: '7',
+        view: 'full',
+      })) as { content: Array<{ text: string }> }).content[0].text,
+    );
+    expect(body).toEqual(WITH_LOGO);
+  });
+
+  // `view` is ours. It picks a response shape on the way out and means nothing
+  // to Eventbrite, so it must never appear in a request. Every handler here
+  // destructures the fields it forwards; this is what keeps that true.
+  it('never reaches the Eventbrite API', async () => {
+    const client = mockClient();
+    harness = await harnessFor(client);
+    for (const [tool, args] of [
+      ['eb_order', { order_id: '1' }],
+      ['eb_venue', { venue_id: '2' }],
+      ['eb_venue_events', { venue_id: '2' }],
+      ['eb_organizer', { organizer_id: '3' }],
+      ['eb_organizer_events', { organizer_id: '3' }],
+      ['eb_series_events', { series_id: '4' }],
+      ['eb_user', { user_id: '5' }],
+    ] as const) {
+      await harness.callTool(tool, { ...args, view: 'compact' });
+    }
+    expect(client.request.mock.calls.length).toBeGreaterThan(0);
+    expect(JSON.stringify(client.request.mock.calls)).not.toContain('view');
+  });
+});

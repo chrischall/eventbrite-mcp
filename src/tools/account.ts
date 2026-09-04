@@ -208,16 +208,17 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
           .optional()
           .describe("Grouping dimension, e.g. 'event', 'day', 'ticket_class'"),
         continuation: schemaContinuation,
+        view: viewArg(),
       },
     },
-    async ({ org_id, kind, start_date, end_date, event_status, group_by, continuation }) => {
+    async ({ org_id, kind, start_date, end_date, event_status, group_by, continuation, view }) => {
       const params = new URLSearchParams();
       if (start_date) params.set('start_date', start_date);
       if (end_date) params.set('end_date', end_date);
       if (event_status) params.set('event_status', event_status);
       if (group_by) params.set('group_by', group_by);
       if (continuation) params.set('continuation', continuation);
-      return minifiedResult(
+      return viewResponse(view, 
         await client.request('GET', `/organizations/${enc(org_id)}/reports/${kind}/${qs(params)}`)
       );
     }
