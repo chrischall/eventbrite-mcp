@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.0...v0.3.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **deps:** @fetchproxy/server 2.10.0 and @chrischall/mcp-utils 0.26.1 ([#63](https://github.com/chrischall/eventbrite-mcp/issues/63)) ([f7e2cca](https://github.com/chrischall/eventbrite-mcp/commit/f7e2cca17888c45d6e2aea9fab4299111f3751eb))
+* **deps:** Bump hono from 4.13.0 to 4.13.7 ([#61](https://github.com/chrischall/eventbrite-mcp/issues/61)) ([db70d49](https://github.com/chrischall/eventbrite-mcp/commit/db70d49aaaa44ced76cb030f97929552a2d970db))
+
 ## [0.3.0](https://github.com/chrischall/eventbrite-mcp/compare/v0.2.0...v0.3.0) (2026-09-04)
 
 
