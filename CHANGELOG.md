@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.1...v0.3.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* **deps:** @fetchproxy/server 2.11.3, so the hosted extension pin persists ([#65](https://github.com/chrischall/eventbrite-mcp/issues/65)) ([685a97d](https://github.com/chrischall/eventbrite-mcp/commit/685a97d402ac159c4dd2a0db2e1d78597990d8f1))
+
 ## [0.3.1](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.0...v0.3.1) (2026-09-10)
 
 
