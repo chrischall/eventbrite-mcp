@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.2...v0.3.3) (2026-09-15)
+
+
+### Bug Fixes
+
+* **deps:** @fetchproxy/server 3.0.1 — capped peer frames, logged load drops, atomic identity writes ([#68](https://github.com/chrischall/eventbrite-mcp/issues/68)) ([64f05c4](https://github.com/chrischall/eventbrite-mcp/commit/64f05c4de407f7aecbbbecb00304cfe34d116c17))
+
 ## [0.3.2](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.1...v0.3.2) (2026-09-14)
 
 
