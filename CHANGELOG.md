@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.3...v1.0.0) (2026-09-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mcp:** migrate server to SDK v2 ([#74](https://github.com/chrischall/eventbrite-mcp/issues/74))
+
+### Features
+
+* **mcp:** migrate server to SDK v2 ([#74](https://github.com/chrischall/eventbrite-mcp/issues/74)) ([ad4def8](https://github.com/chrischall/eventbrite-mcp/commit/ad4def8b90a276c8f02c531b9fcd57b8b70678b3))
+
+
+### Bug Fixes
+
+* **deps:** Bump the production-dependencies group with 2 updates ([#72](https://github.com/chrischall/eventbrite-mcp/issues/72)) ([4198734](https://github.com/chrischall/eventbrite-mcp/commit/4198734d8007dcc1a9179a76db39df8cf16faa65))
+* **mcp:** restore repository source style ([#76](https://github.com/chrischall/eventbrite-mcp/issues/76)) ([4d90b78](https://github.com/chrischall/eventbrite-mcp/commit/4d90b78f08a50505fac2bd913c2a45fa2680a110))
+
 ## [0.3.3](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.2...v0.3.3) (2026-09-15)
 
 
