@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/chrischall/eventbrite-mcp/compare/v1.0.0...v1.1.0) (2026-09-19)
+
+
+### Features
+
+* **deps:** take mcp-utils 1.0.0 so server/discover answers ([#77](https://github.com/chrischall/eventbrite-mcp/issues/77)) ([420f930](https://github.com/chrischall/eventbrite-mcp/commit/420f9308eb8592263c12a938bd53fb6df814884d))
+
 ## [1.0.0](https://github.com/chrischall/eventbrite-mcp/compare/v0.3.3...v1.0.0) (2026-09-17)
 
 
