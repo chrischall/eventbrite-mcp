@@ -14,7 +14,7 @@ import type { EventbriteClient } from './client.js';
 const BROWSE_ORIGIN = 'https://www.eventbrite.com';
 const BROWSE_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
-/** Match the API client's timeout so a stalled connection cannot hang a call. */
+/** Match the API client's timeout so a stalled connection (headers or body) cannot hang a call. */
 const BROWSE_TIMEOUT_MS = 30_000;
 
 /** A 404 is a real answer; a 200 is only usable if it actually carries a placeId. */
@@ -24,15 +24,24 @@ function isUsableBrowsePage(result: FetchResult): boolean {
   return typeof result.body === 'string' && PLACE_ID_RE.test(result.body);
 }
 
-/** `fetch` with an AbortController deadline. */
-async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+/**
+ * GET a page with an AbortController deadline covering the WHOLE exchange.
+ * `fetch` resolves as soon as headers arrive, so the body read must happen
+ * before the timer is cleared — otherwise a server that sends headers and then
+ * stalls the body hangs the call past the deadline.
+ */
+async function fetchTextWithTimeout(
+  url: string,
+  ms: number
+): Promise<{ status: number; body: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       headers: { 'User-Agent': BROWSE_UA, Accept: 'text/html' },
       signal: controller.signal,
     });
+    return { status: res.status, body: await res.text() };
   } finally {
     clearTimeout(timer);
   }
@@ -417,8 +426,8 @@ export class DiscoveryClient {
     let direct: FetchResult | null = null;
     let failure = '';
     try {
-      const res = await fetchWithTimeout(url, BROWSE_TIMEOUT_MS);
-      direct = { status: res.status, body: await res.text(), url };
+      const res = await fetchTextWithTimeout(url, BROWSE_TIMEOUT_MS);
+      direct = { status: res.status, body: res.body, url };
       if (isUsableBrowsePage(direct)) return direct;
       failure = `HTTP ${direct.status} without a placeId (WAF block or drift)`;
     } catch (e) {
