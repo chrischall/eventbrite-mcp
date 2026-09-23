@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.0...v1.1.1) (2026-09-23)
+
+
+### Bug Fixes
+
+* **deps:** require zod ^4.6.5 to match @chrischall/mcp-utils 2.4.0 ([#81](https://github.com/chrischall/eventbrite-mcp/issues/81)) ([53f1655](https://github.com/chrischall/eventbrite-mcp/commit/53f1655d6588ad8fe7353a3db3253b4b5e9439fc))
+* **deps:** upgrade @chrischall/mcp-utils to 2.4.0 and @fetchproxy/* to 3.2.0 ([#79](https://github.com/chrischall/eventbrite-mcp/issues/79)) ([8150da6](https://github.com/chrischall/eventbrite-mcp/commit/8150da6c45ece7ede257fae0d5175f6a79da0b4c))
+
 ## [1.1.0](https://github.com/chrischall/eventbrite-mcp/compare/v1.0.0...v1.1.0) (2026-09-19)
 
 
