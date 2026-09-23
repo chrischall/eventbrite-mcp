@@ -539,6 +539,35 @@ describe('fetchBrowsePage fallback', () => {
     expect(transport.fetch).not.toHaveBeenCalled();
   });
 
+  it('falls back to the bridge when headers arrive but the body stalls past the deadline', async () => {
+    // Real fetch resolves on headers; the body read is governed by the same
+    // signal. Model a server that sends headers then never finishes the body:
+    // text() only settles if the request's signal aborts.
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((_url: string, init: RequestInit) =>
+          Promise.resolve({
+            status: 200,
+            text: () =>
+              new Promise<string>((_resolve, reject) => {
+                init.signal?.addEventListener('abort', () => reject(new Error('body read aborted')));
+              }),
+          })
+        )
+      );
+      const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
+      const pending = new DiscoveryClient(transport).resolvePlace('co--denver');
+      await vi.advanceTimersByTimeAsync(30_000);
+      const place = await pending;
+      expect(place.placeId).toBe('77');
+      expect(transport.fetch).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('surfaces the bot wall when blocked and there is no bridge', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, text: async () => '<html>Whoops!</html>' }));
     await expect(new DiscoveryClient(null).resolvePlace('co--denver')).rejects.toThrow(/anti-bot/i);
