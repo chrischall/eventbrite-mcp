@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.1...v1.1.2) (2026-09-23)
+
+
+### Bug Fixes
+
+* **discovery:** time out a stalled browse-page body so place lookups fall back to the bridge ([#82](https://github.com/chrischall/eventbrite-mcp/issues/82)) ([9c4e64e](https://github.com/chrischall/eventbrite-mcp/commit/9c4e64ee56784429a69635cc83242a4778dfb7c5))
+
 ## [1.1.1](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.0...v1.1.1) (2026-09-23)
 
 
