@@ -347,6 +347,9 @@ export class DiscoveryClient {
           'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify(body),
+        // A search is a read despite the POST verb: safe to re-send after a
+        // cold-start transport timeout (fetchproxy 3.2 only retries GETs by default).
+        retryOnTimeout: true,
       });
 
     let { data, result } = await attempt(await this.ensureCsrf());
