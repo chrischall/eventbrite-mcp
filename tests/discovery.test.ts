@@ -134,6 +134,9 @@ describe('DiscoveryClient.search', () => {
           'X-CSRFToken': 'tok123',
           'X-Requested-With': 'XMLHttpRequest',
         }),
+        // The search POST is a read: opt it back into the cold-start retry
+        // that @fetchproxy 3.2 withholds from non-GET methods by default.
+        retryOnTimeout: true,
       })
     );
     // Cookie read is cached across calls.
