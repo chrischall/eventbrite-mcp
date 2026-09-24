@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.3](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.2...v1.1.3) (2026-09-24)
+
+
+### Bug Fixes
+
+* **deps:** Bump dotenv from 17.4.2 to 18.0.1 ([#86](https://github.com/chrischall/eventbrite-mcp/issues/86)) ([8c9ac03](https://github.com/chrischall/eventbrite-mcp/commit/8c9ac0333aff379df7af4a0380a1f4ff2192d147))
+* **deps:** Bump dotenv from 18.0.1 to 18.0.2 in the production-dependencies group ([#89](https://github.com/chrischall/eventbrite-mcp/issues/89)) ([c001e84](https://github.com/chrischall/eventbrite-mcp/commit/c001e840e7f4bd5d9f2b07f97c9c11d91db280ee))
+* **deps:** Bump dotenv in the production-dependencies group ([c001e84](https://github.com/chrischall/eventbrite-mcp/commit/c001e840e7f4bd5d9f2b07f97c9c11d91db280ee))
+
 ## [1.1.2](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.1...v1.1.2) (2026-09-23)
 
 
