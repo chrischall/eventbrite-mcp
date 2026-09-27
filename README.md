@@ -15,8 +15,8 @@ Two data paths, matched to how Eventbrite is reachable:
 - **Consumer discovery API** (`www.eventbrite.com/api/v3/destination/…`) — the
   site WAF-blocks server-side clients, so search routes through your own
   signed-in eventbrite.com browser tab via the
-  [fetchproxy](https://github.com/chrischall/fetchproxy) bridge (Transporter
-  extension), reusing your authenticated session. Powers `eb_search_events`,
+  [fetchproxy](https://github.com/chrischall/fetchproxy) bridge (ContextMint
+  Bridge extension), reusing your authenticated session. Powers `eb_search_events`,
   `eb_resolve_place`, `eb_event_details`, `eb_healthcheck`.
 
 All tools are read-only.
@@ -42,9 +42,12 @@ Claude Code (`.mcp.json`):
 
 - Without `EVENTBRITE_TOKEN` the server still boots; account tools error
   helpfully on first use, and discovery tools work regardless.
-- For discovery tools: install the Transporter extension, keep an
-  eventbrite.com tab open, and approve the one-time pair prompt (the prompt
-  covers the `csrftoken` cookie read the search POST needs). Run
+- For discovery tools: install ContextMint Bridge from its
+  [releases](https://github.com/nullnet-app/contextmint-bridge/releases)
+  (Chrome: unzip the chrome zip and load it unpacked; Safari: it ships inside
+  the ContextMint app), keep an eventbrite.com tab open, and approve the
+  one-time pair prompt (the prompt covers the `csrftoken` cookie read the
+  search POST needs). Run
   `eb_healthcheck` to verify the hop.
 
 ## Tools

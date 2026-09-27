@@ -34,7 +34,7 @@ describe('FetchproxyTransport', () => {
   });
 
   it('declares eventbrite.com + the csrftoken cookie scope up front (single pairing)', () => {
-    // fpx/Transporter cannot widen scope after the first pair — the cookie
+    // fpx/ContextMint Bridge cannot widen scope after the first pair — the cookie
     // capability must be in the FIRST pairing prompt (fleet gotcha 2026-07-30).
     const { captured, createServer } = capturingServer();
     new FetchproxyTransport({ version: '0.0.0', createServer });

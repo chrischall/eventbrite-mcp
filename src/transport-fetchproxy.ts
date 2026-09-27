@@ -1,6 +1,6 @@
 // EventbriteTransport backed by the shared fetchproxy factory: every request
 // runs as a same-origin fetch inside the user's signed-in eventbrite.com tab
-// (Transporter extension), which is what clears the WAF that blocks any
+// (ContextMint Bridge extension), which is what clears the WAF that blocks any
 // server-side client. The `csrftoken` cookie scope is declared up front so the
 // ONE pairing approval covers both fetch and the cookie read — fpx 1.4.0
 // cannot widen scope after the first pair (see the fleet skill's gotcha).

@@ -28,10 +28,12 @@ account) and export it as `EVENTBRITE_TOKEN`.
 ```sh
 npm install -g @fetchproxy/cli                  # provides `fpx`
 fpx profile add eventbrite --domain eventbrite.com
-fpx pair -p eventbrite    # prints a pair code → approve in the Transporter popup
+fpx pair -p eventbrite    # prints a pair code → approve in the ContextMint Bridge popup
 ```
 
-Requires the **Transporter** extension with Chrome site access for
+Requires **ContextMint Bridge**
+(<https://github.com/nullnet-app/contextmint-bridge/releases> — Chrome: load the
+chrome zip unpacked; Safari: ships inside the ContextMint app) with site access for
 `eventbrite.com` and an open (signed-in for account data) eventbrite.com tab.
 Pairing persists after the first approval.
 
@@ -62,7 +64,7 @@ body shape and the resolve-location-first rule live there.
   not free-text locations — autocomplete first (see `discovery-api.md`).
 - **Pagination**: v3 responses carry a `pagination` envelope; loop with
   `?continuation=<token>` while `has_more_items` is true.
-- **fpx exit codes**: `2` bridge down (pair/approve in Transporter), `3` bot
+- **fpx exit codes**: `2` bridge down (pair/approve in ContextMint Bridge), `3` bot
   wall (refresh a signed-in eventbrite.com tab), `4` upstream non-2xx.
 - **Read-only**: these recipes only read data. The documented API supports
   organizer writes (create/update events etc.) but they are out of scope
