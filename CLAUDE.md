@@ -18,7 +18,7 @@ them here):
   GETs are exempt. On a `CSRF Failed` 401, re-read the cookie and retry once
   (already implemented in `DiscoveryClient.search`).
 - **Cookie scope must stay in the FIRST pairing declaration**
-  (`createBootstrapOpts` in `transport-fetchproxy.ts`) — Transporter cannot
+  (`createBootstrapOpts` in `transport-fetchproxy.ts`) — ContextMint Bridge cannot
   widen scope after the initial pair approval; changing declared scopes forces
   a full re-pair (profile remove/re-add on the fpx CLI side).
 - **Place ids**: searches take Whosonfirst-style ids, resolved by grepping
