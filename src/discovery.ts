@@ -286,7 +286,7 @@ export class DiscoveryClient {
 
   private noRoute(what: string): McpToolError {
     return new McpToolError(`No route available for ${what}.`, {
-      hint: 'Set EVENTBRITE_TOKEN, or pair the fetchproxy bridge and keep an eventbrite.com tab open.',
+      hint: 'Set EVENTBRITE_TOKEN, or pair ContextMint Bridge and keep an eventbrite.com tab open.',
     });
   }
 
