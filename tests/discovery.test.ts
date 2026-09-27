@@ -486,6 +486,12 @@ describe('DiscoveryClient — API-first routing', () => {
     );
   });
 
+  it('points the no-route hint at ContextMint Bridge', async () => {
+    await expect(new DiscoveryClient(null, null).search({ q: 'blues' })).rejects.toMatchObject({
+      hint: 'Set EVENTBRITE_TOKEN, or pair ContextMint Bridge and keep an eventbrite.com tab open.',
+    });
+  });
+
   it('uses the DESTINATION batch endpoint so both routes return one shape', async () => {
     // /events/?event_ids= also works on this host but returns the documented
     // shape (name:{text,html}, start:{utc}); the bridge returns the destination

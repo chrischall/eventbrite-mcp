@@ -44,11 +44,20 @@ Claude Code (`.mcp.json`):
   helpfully on first use, and discovery tools work regardless.
 - For discovery tools: install ContextMint Bridge from its
   [releases](https://github.com/nullnet-app/contextmint-bridge/releases)
-  (Chrome: unzip the chrome zip and load it unpacked; Safari: it ships inside
-  the ContextMint app), keep an eventbrite.com tab open, and approve the
+  (unzip the chrome zip and load it unpacked; use Chrome for now — Safari
+  support will ship inside the ContextMint app, which has no public download
+  yet), keep an eventbrite.com tab open, and approve the
   one-time pair prompt (the prompt covers the `csrftoken` cookie read the
   search POST needs). Run
   `eb_healthcheck` to verify the hop.
+- ContextMint Bridge is the fetchproxy browser extension under its new name,
+  from the same maintainer — fetchproxy's own
+  [README](https://github.com/chrischall/fetchproxy#extension) points to it.
+  Its source is public at
+  [nullnet-app/contextmint-bridge](https://github.com/nullnet-app/contextmint-bridge):
+  build it yourself, or check a release zip against the `.sha256` file
+  published beside it
+  (`shasum -a 256 -c contextmint-bridge-chrome-<version>.zip.sha256`).
 
 ## Tools
 

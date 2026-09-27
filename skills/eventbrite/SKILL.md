@@ -32,10 +32,11 @@ fpx pair -p eventbrite    # prints a pair code → approve in the ContextMint Br
 ```
 
 Requires **ContextMint Bridge**
-(<https://github.com/nullnet-app/contextmint-bridge/releases> — Chrome: load the
-chrome zip unpacked; Safari: ships inside the ContextMint app) with site access for
+(<https://github.com/nullnet-app/contextmint-bridge/releases> — load the chrome
+zip unpacked; use Chrome for now, Safari is not available yet) with site access for
 `eventbrite.com` and an open (signed-in for account data) eventbrite.com tab.
 Pairing persists after the first approval.
+ContextMint Bridge is the fetchproxy extension renamed (same maintainer; source at <https://github.com/nullnet-app/contextmint-bridge> — build it, or verify a release zip with `shasum -a 256 -c contextmint-bridge-chrome-<version>.zip.sha256`).
 
 ## Core calls
 
