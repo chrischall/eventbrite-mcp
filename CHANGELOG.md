@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.4](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.3...v1.1.4) (2026-09-27)
+
+
+### Bug Fixes
+
+* **deps:** move to [@fetchproxy](https://github.com/fetchproxy) 3.4 for ContextMint Bridge errors, capability subsets and managed pins ([#90](https://github.com/chrischall/eventbrite-mcp/issues/90)) ([3873859](https://github.com/chrischall/eventbrite-mcp/commit/3873859546615da7ed75f61b1df8e88097a062e1))
+* **deps:** move to @chrischall/mcp-utils 2.8 and [@fetchproxy](https://github.com/fetchproxy) 3.4.1 for clearer browser-bridge errors ([#92](https://github.com/chrischall/eventbrite-mcp/issues/92)) ([993ff69](https://github.com/chrischall/eventbrite-mcp/commit/993ff6945f40d1ea88a28d2a2eb11a8c772e53ba))
+
 ## [1.1.3](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.2...v1.1.3) (2026-09-24)
 
 
