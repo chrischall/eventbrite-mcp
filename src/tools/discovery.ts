@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { resolveView } from '@chrischall/mcp-utils';
+import {
+  credentialHealthcheckDescription,
+  runCredentialHealthcheck,
+  type HealthcheckToolResult,
+} from '@chrischall/mcp-utils/healthcheck';
+import type { EventbriteClient } from '../client.js';
 import { EB_VIEWS, viewArg, viewResponse } from '../view.js';
 import { DiscoveryClient, toCompactEvent } from '../discovery.js';
 import type { EventbriteTransport } from '../transport.js';
@@ -14,6 +20,8 @@ export interface DiscoveryDeps {
    * it is only registered when there is a bridge to diagnose.
    */
   transport: EventbriteTransport | null;
+  /** The documented-API client whose EVENTBRITE_TOKEN eb_healthcheck probes. */
+  client: Pick<EventbriteClient, 'request' | 'hasToken'>;
 }
 
 /**
@@ -164,29 +172,99 @@ export async function registerDiscoveryTools(
     },
   );
 
-  // eb_healthcheck diagnoses the BRIDGE. With no bridge
-  // there is nothing for it to report on, so it is not registered at all —
-  // better than a tool that always answers "no transport".
-  if (!transport) return;
+  registerHealthcheck(server, deps);
+}
 
-  // Imported lazily, AFTER the guard: a static import would drag the fetchproxy
-  // helper into a bundle where it can never run.
-  const { registerBridgeHealthcheckTool } = await import('@chrischall/mcp-utils/fetchproxy');
+const API_HOST = 'www.eventbriteapi.com';
+const WWW_HOST = 'www.eventbrite.com';
+const BRIDGE_PROBE_PATH = '/api/v3/categories/';
+const NO_TOKEN_NOTE =
+  'EVENTBRITE_TOKEN is not set, so this diagnosed the browser bridge that discovery falls back to. ' +
+  'Account, order and organization tools need the token — create a private token at ' +
+  'https://www.eventbrite.com/platform/api-keys.';
 
-  // The categories endpoint answers 200 JSON on the www host regardless of
-  // login state, so it isolates bridge problems from Eventbrite-side problems.
-  registerBridgeHealthcheckTool({
-    server,
-    prefix: 'eb',
-    hostLabel: 'www.eventbrite.com',
-    probePath: '/api/v3/categories/',
-    transport,
-    probeFn: async (path: string) => {
-      const result = await transport.fetch({ path, method: 'GET' });
-      if (result.status !== 200) {
-        throw new Error(`probe returned HTTP ${result.status}`);
-      }
-      return typeof result.body === 'string' ? result.body : '';
+/**
+ * ONE eb_healthcheck, answering for whichever route is live
+ * (chrischall/mcp-host#1015):
+ *
+ *  - a token is configured → the CREDENTIAL arm: one authenticated
+ *    `GET /users/me/` through the same client the tools use, judged by the
+ *    shared ladder — `credential_rejected` on a genuine 401/403,
+ *    `edge_blocked` on a CDN/WAF refusal page (never "bad token"), and
+ *    `http` / `timeout` / `transport` otherwise;
+ *  - no token and a bridge → the BRIDGE arm, since discovery is riding it,
+ *    with a `credential` block and a hint that the token is missing (account
+ *    tools fail without it, so a green bridge alone is not the whole story);
+ *  - no token and no bridge → `no_credential`, without sending a probe.
+ *
+ * Not `registerAdaptiveHealthcheckTool`: that runs the bridge arm verbatim and
+ * would say nothing about the missing token.
+ */
+function registerHealthcheck(server: McpServer, deps: DiscoveryDeps): void {
+  const { client, transport } = deps;
+
+  const runCredential = (): Promise<HealthcheckToolResult> =>
+    runCredentialHealthcheck({
+      server,
+      prefix: 'eb',
+      hostLabel: API_HOST,
+      probePath: '/v3/users/me/',
+      resolveCredential: async () => ({ source: client.hasToken() ? 'EVENTBRITE_TOKEN' : null }),
+      probeFn: () => client.request('GET', '/users/me/'),
+    });
+
+  const runBridge = async (bridge: EventbriteTransport): Promise<HealthcheckToolResult> => {
+    // Imported lazily: a static import would drag the fetchproxy helper into a
+    // bundle where it can never run.
+    const { runBridgeHealthcheck } = await import('@chrischall/mcp-utils/fetchproxy');
+    const res = await runBridgeHealthcheck({
+      server,
+      prefix: 'eb',
+      hostLabel: WWW_HOST,
+      // The categories endpoint answers 200 JSON on the www host regardless of
+      // login state, so it isolates bridge problems from Eventbrite-side ones.
+      probePath: BRIDGE_PROBE_PATH,
+      transport: bridge,
+      probeFn: async (path: string) => {
+        const result = await bridge.fetch({ path, method: 'GET' });
+        const body = typeof result.body === 'string' ? result.body : '';
+        if (result.status !== 200) {
+          // Carry the status AND the body: the shared ladder reads a CDN/WAF
+          // refusal page off `body` and reports `edge_blocked` rather than a
+          // generic upstream error. The body never reaches the message.
+          throw Object.assign(new Error(`probe returned HTTP ${result.status}`), {
+            status: result.status,
+            body,
+          });
+        }
+        return body;
+      },
+    });
+    const parsed = JSON.parse(res.content[0]!.text) as Record<string, unknown> & { hint?: string };
+    const annotated = {
+      ...parsed,
+      credential: { source: null, resolved: false },
+      hint: `${parsed.hint ?? ''} ${NO_TOKEN_NOTE}`.trim(),
+    };
+    return { content: [{ type: 'text' as const, text: JSON.stringify(annotated, null, 2) }] };
+  };
+
+  server.registerTool(
+    'eb_healthcheck',
+    {
+      title: 'Verify this server can reach Eventbrite',
+      description:
+        `Reports which hop is broken when a real tool fails. With EVENTBRITE_TOKEN set: ${credentialHealthcheckDescription(API_HOST)} ` +
+        `Without a token, discovery falls back to your signed-in browser tab, so it round-trips ${BRIDGE_PROBE_PATH} on ${WWW_HOST} through that bridge instead and says the token is missing. ` +
+        "Every failure carries an error.kind — e.g. 'credential_rejected', 'edge_blocked' (a CDN/WAF refused the request; the token was never judged), 'no_credential', 'timeout', 'http', 'transport'.",
+      annotations: {
+        title: 'Verify this server can reach Eventbrite',
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      inputSchema: z.object({}),
     },
-  });
+    async () => (!client.hasToken() && transport ? runBridge(transport) : runCredential()),
+  );
 }

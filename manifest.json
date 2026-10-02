@@ -106,7 +106,7 @@
     },
     {
       "name": "eb_healthcheck",
-      "description": "Verify the browser bridge end-to-end"
+      "description": "Verify EVENTBRITE_TOKEN (or, without one, the browser bridge) end-to-end; reports an error kind such as credential_rejected or edge_blocked"
     }
   ]
 }

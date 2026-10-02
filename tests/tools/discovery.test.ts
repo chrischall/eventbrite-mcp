@@ -25,7 +25,8 @@ function mockDeps() {
     readCookies: vi.fn(),
     runProbe: vi.fn().mockResolvedValue({ ok: true, elapsed_ms: 5, health: { role: 'host', port: 37149 } }),
   } as unknown as EventbriteTransport;
-  return { discovery, transport };
+  const client = { request: vi.fn(), hasToken: () => true };
+  return { discovery, transport, client };
 }
 
 describe('discovery tools', () => {

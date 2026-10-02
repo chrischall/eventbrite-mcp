@@ -32,8 +32,12 @@ them here):
 - All request/response shapes are pinned in `docs/EVENTBRITE-API.md` with
   their verification status — keep that file's status notes truthful when
   endpoints change, and re-capture before coding new ones.
-- `registerDiscoveryTools` takes the fetchproxy bridge or `null`. With `null`
-  it registers the API-route discovery tools but skips `eb_healthcheck`, which
-  diagnoses the bridge and has nothing to report without one.
+- `registerDiscoveryTools` takes the fetchproxy bridge or `null`, plus the
+  API `client`. `eb_healthcheck` is always registered and answers for the
+  live route: a token → probe `GET /users/me/` via the shared credential
+  ladder (the client's 401 is an `ApiError(401)` so it reads
+  `credential_rejected`; a block page is `edge_blocked`); no token + bridge →
+  the bridge arm, annotated that the token is missing; neither →
+  `no_credential` without probing.
 - Version lives in `src/version.ts` alone (single `x-release-please-version`
   marker); `index.ts` imports it.
