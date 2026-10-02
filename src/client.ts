@@ -1,6 +1,6 @@
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { loadDotenvSafely, readEnvVar, createApiClient, type ApiClient } from '@chrischall/mcp-utils';
+import { loadDotenvSafely, readEnvVar, createApiClient, ApiError, type ApiClient } from '@chrischall/mcp-utils';
 
 // Load .env for local dev; silently skip if dotenv is unavailable (e.g. mcpb
 // bundle). `loadDotenvSafely` swallows a missing dotenv module and never lets
@@ -59,10 +59,19 @@ export class EventbriteClient {
       serviceName: SERVICE_NAME,
       retry: { count: 1, delayMs: 2000 },
       timeout: 30_000,
+      // An ApiError, not a bare Error: it keeps the 401 so eb_healthcheck's
+      // shared ladder reads it as `credential_rejected` (a bare Error has no
+      // status and fell through to `unknown`). A CDN/WAF refusal 401 never
+      // reaches here — createApiClient throws EdgeBlockedError for it first.
       onUnauthorized: () =>
-        new Error('EVENTBRITE_TOKEN is invalid or missing (eventbrite.com/platform/api-keys)'),
+        new ApiError(401, 'EVENTBRITE_TOKEN is invalid or missing (eventbrite.com/platform/api-keys)'),
       onRateLimited: () => new Error('Rate limited by the Eventbrite API (default 2,000 calls/hour)'),
     });
+  }
+
+  /** Whether a token is configured. Never exposes the token itself. */
+  hasToken(): boolean {
+    return this.token !== null;
   }
 
   private requireToken(): string {

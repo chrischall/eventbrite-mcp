@@ -49,7 +49,8 @@ Claude Code (`.mcp.json`):
   yet), keep an eventbrite.com tab open, and approve the
   one-time pair prompt (the prompt covers the `csrftoken` cookie read the
   search POST needs). Run
-  `eb_healthcheck` to verify the hop.
+  `eb_healthcheck` to verify the hop (with no token it checks the bridge; with
+  a token it checks the token).
 - ContextMint Bridge is the fetchproxy browser extension under its new name,
   from the same maintainer — fetchproxy's own
   [README](https://github.com/chrischall/fetchproxy#extension) points to it.
@@ -83,7 +84,7 @@ Claude Code (`.mcp.json`):
 | `eb_resolve_place` | token | location → place id (`Charlotte, NC` → `85981333`), plus browse shelves |
 | `eb_search_events` | token | the consumer search; `compact: true` for slim results, `aggs` for facets |
 | `eb_event_details` | token | batch event detail |
-| `eb_healthcheck` | bridge | bridge diagnostics (stdio only; the bridge is a fallback route) |
+| `eb_healthcheck` | token, else bridge | with a token: probes `GET /users/me/` and reports `error.kind` (`credential_rejected`, `edge_blocked` for a CDN/WAF block page, `timeout`, `http`, `transport`); without one: diagnoses the bridge discovery falls back to and says the token is missing (`no_credential` when there is no bridge either) |
 
 Search flow: `eb_resolve_place {location: "Charlotte, NC"}` →
 `eb_search_events {q: "blues", place_id: "85981333", compact: true}`.

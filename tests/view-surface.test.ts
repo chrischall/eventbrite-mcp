@@ -40,7 +40,7 @@ async function registered(): Promise<{ name: string; readOnly: boolean; hasView:
       });
     },
   } as unknown as McpServer;
-  const client = { request: vi.fn() } as unknown as EventbriteClient;
+  const client = { request: vi.fn(), hasToken: () => true } as unknown as EventbriteClient;
   registerAccountTools(server, { client });
   registerEventTools(server, { client });
   registerLookupTools(server, { client });
@@ -51,7 +51,8 @@ async function registered(): Promise<{ name: string; readOnly: boolean; hasView:
       search: vi.fn(),
       resolvePlace: vi.fn(),
     } as unknown as DiscoveryClient,
-    transport: undefined,
+    transport: null,
+    client,
   });
   return out;
 }
@@ -72,7 +73,11 @@ describe('the view surface', () => {
   });
 
   it('gives every read tool a view param', async () => {
-    const missing = (await registered()).filter((t) => t.readOnly && !t.hasView).map((t) => t.name);
+    // eb_healthcheck is a diagnostic with a fixed envelope, not a data read —
+    // there is nothing for a view rung to project.
+    const missing = (await registered())
+      .filter((t) => t.readOnly && !t.hasView && t.name !== 'eb_healthcheck')
+      .map((t) => t.name);
     expect(missing).toEqual([]);
   });
 });
