@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { EdgeBlockedError } from '@chrischall/mcp-utils';
 
 // The client module reads env at construction time; set it before importing.
 process.env.EVENTBRITE_TOKEN = 'test-token';
@@ -52,6 +53,7 @@ describe('EventbriteClient', () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
+      headers: new Headers({ 'content-type': 'application/json' }),
       text: async () =>
         JSON.stringify({ status_code: 401, error: 'INVALID_AUTH', error_description: 'bad token' }),
     });
@@ -59,5 +61,20 @@ describe('EventbriteClient', () => {
 
     const client = new EventbriteClient({ token: 'bad-token' });
     await expect(client.request('GET', '/users/me/')).rejects.toThrow(/EVENTBRITE_TOKEN is invalid/);
+  });
+
+  it('reports a CDN/WAF refusal 401 as edge-blocked, not as a bad token', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: new Headers({ 'cf-mitigated': 'challenge', 'content-type': 'text/html' }),
+      text: async () => '<html><title>Just a moment...</title></html>',
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const client = new EventbriteClient({ token: 'good-token' });
+    const err = await client.request('GET', '/users/me/').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EdgeBlockedError);
+    expect(String(err)).not.toMatch(/EVENTBRITE_TOKEN is invalid/);
   });
 });
