@@ -19,7 +19,7 @@ describe('tool registry', () => {
   });
 
   it('includes all 31 expected tools', async () => {
-    const client = { request: vi.fn() } as unknown as EventbriteClient;
+    const client = { request: vi.fn(), hasToken: () => true } as unknown as EventbriteClient;
     const discovery = { search: vi.fn(), eventsByIds: vi.fn(), resolvePlace: vi.fn() } as unknown as DiscoveryClient;
     const transport = {
       start: vi.fn(),
@@ -35,7 +35,7 @@ describe('tool registry', () => {
       registerAccountTools(server, { client });
       registerEventTools(server, { client });
       registerLookupTools(server, { client });
-      await registerDiscoveryTools(server, { discovery, transport });
+      await registerDiscoveryTools(server, { discovery, transport, client });
     });
 
     const tools = await harness.listTools();
