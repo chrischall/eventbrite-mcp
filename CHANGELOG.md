@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.5](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.4...v1.1.5) (2026-10-03)
+
+
+### Bug Fixes
+
+* bump @chrischall/mcp-utils to 2.9.0 ([#97](https://github.com/chrischall/eventbrite-mcp/issues/97)) ([f4e82a5](https://github.com/chrischall/eventbrite-mcp/commit/f4e82a567c927c23a2b205ce904bd30251f1d766))
+* **deps:** bump @chrischall/mcp-utils to 2.12.0 ([#100](https://github.com/chrischall/eventbrite-mcp/issues/100)) ([9d1102d](https://github.com/chrischall/eventbrite-mcp/commit/9d1102dfa285f69bf9741cb1bf2ba04caee3304a))
+* **deps:** bump @chrischall/mcp-utils to 2.13.0 ([#103](https://github.com/chrischall/eventbrite-mcp/issues/103)) ([707763b](https://github.com/chrischall/eventbrite-mcp/commit/707763b553b8ea91dcd92548c99de24127f0b9af))
+* **deps:** Bump dotenv ([9c0fd1a](https://github.com/chrischall/eventbrite-mcp/commit/9c0fd1a93ca7fed250019ce64b568b25ac374ae2))
+* **deps:** Bump dotenv from 18.0.2 to 18.0.4 in the production-dependencies group ([#95](https://github.com/chrischall/eventbrite-mcp/issues/95)) ([9c0fd1a](https://github.com/chrischall/eventbrite-mcp/commit/9c0fd1a93ca7fed250019ce64b568b25ac374ae2))
+* **healthcheck:** make eb_healthcheck probe EVENTBRITE_TOKEN and report edge blocks ([#101](https://github.com/chrischall/eventbrite-mcp/issues/101)) ([ec4c473](https://github.com/chrischall/eventbrite-mcp/commit/ec4c473d92a0e7a342bbf18470539c6db0b1cf50))
+* keep credentials and report edge_blocked on CDN/WAF blocks (mcp-utils 2.10.0) ([#99](https://github.com/chrischall/eventbrite-mcp/issues/99)) ([8913bab](https://github.com/chrischall/eventbrite-mcp/commit/8913babe9c4010dde2ee8f0095c801908b3eb625))
+
 ## [1.1.4](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.3...v1.1.4) (2026-09-27)
 
 
