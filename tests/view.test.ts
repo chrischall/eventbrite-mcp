@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { viewResponse, EB_VIEWS } from '../src/view.js';
 
-const parse = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
+// viewResponse returns a full CallToolResult, whose content union includes
+// non-text blocks; it only ever emits one text block, so read that.
+const textOf = (r: ReturnType<typeof viewResponse>): string => (r.content[0] as { text: string }).text;
+const parse = (r: ReturnType<typeof viewResponse>) => JSON.parse(textOf(r));
 
 describe('the rungs', () => {
   it('offers compact and full, and not raw — full already IS the upstream payload', () => {
@@ -53,7 +56,7 @@ describe('full', () => {
 describe('whitespace', () => {
   it('emits none of its own, and never touches whitespace inside a value', () => {
     const description = 'Line one.\n\n  Indented.   ';
-    const text = viewResponse('compact', { description }).content[0].text;
+    const text = textOf(viewResponse('compact', { description }));
     expect(text.split('\n')).toHaveLength(1);
     expect(JSON.parse(text).description).toBe(description);
   });

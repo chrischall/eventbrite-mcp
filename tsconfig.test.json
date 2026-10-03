@@ -1,0 +1,18 @@
+{
+  // Typechecks the TESTS as well as the source.
+  //
+  // The build config is `rootDir: "src"` / `include: ["src"]`, so `tests/` was
+  // never seen by tsc — and vitest transpiles with esbuild, which does no type
+  // checking at all. Between the two, PR #101 made `client` a required field of
+  // DiscoveryDeps and tests/index.test.ts kept calling registerDiscoveryTools
+  // without it, with the suite green (#102).
+  //
+  // Separate from tsconfig.json rather than folded into it because widening
+  // `include` there would drag tests into `outDir` and break the emitted build.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src", "tests"]
+}
