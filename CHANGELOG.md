@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.5...v1.1.6) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** require @chrischall/mcp-utils 2.14.0 and MCP SDK 2.3.0 ([#105](https://github.com/chrischall/eventbrite-mcp/issues/105)) ([82fcba7](https://github.com/chrischall/eventbrite-mcp/commit/82fcba7f253d650541b25f50f4ec589224c9c18b))
+
 ## [1.1.5](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.4...v1.1.5) (2026-10-03)
 
 
