@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.7](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.6...v1.1.7) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** pick up mcp-utils 2.15.0 confirmation opt-out and fetchproxy 3.6.0 bridge fixes ([#107](https://github.com/chrischall/eventbrite-mcp/issues/107)) ([a641da2](https://github.com/chrischall/eventbrite-mcp/commit/a641da231aae5dff7dc169b80839374a2efde4bb))
+
 ## [1.1.6](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.5...v1.1.6) (2026-10-05)
 
 
