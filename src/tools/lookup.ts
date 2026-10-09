@@ -20,7 +20,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     {
       description:
         'Get a single order by id (the buyer-side record behind a ticket). Order ids appear in eb_my_orders / eb_event_orders results.',
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         order_id: z.string().describe('Numeric order id'),
         expand: z
@@ -45,7 +45,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     {
       description:
         'Get a venue by id (name, address, geo). Venue ids appear on expanded events and in eb_org_venues.',
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         venue_id: z.string().describe('Numeric venue id'),
         view: viewArg(),
@@ -59,7 +59,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     'eb_venue_events',
     {
       description: 'List the events held at a venue.',
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         venue_id: z.string().describe('Numeric venue id'),
         status: schemaEventStatus,
@@ -83,7 +83,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     {
       description:
         "Get an organizer's public profile by id (name, description, logo, social links).",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         organizer_id: z.string().describe('Numeric organizer id'),
         view: viewArg(),
@@ -98,7 +98,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     {
       description:
         "List an organizer's events — the public way to see everything one organizer is running.",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         organizer_id: z.string().describe('Numeric organizer id'),
         status: schemaEventStatus,
@@ -124,7 +124,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     {
       description:
         'List the occurrences of a recurring event series. Search results and events carry a series_id when they belong to one.',
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         series_id: z.string().describe('Numeric series id (from an event/search result)'),
         status: schemaEventStatus,
@@ -148,7 +148,7 @@ export function registerLookupTools(server: McpServer, deps: { client: Eventbrit
     {
       description:
         'Get a public user profile by id. Use eb_me for the authenticated user (that call also returns private fields like emails).',
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         user_id: z.string().describe('Numeric user id'),
         view: viewArg(),
