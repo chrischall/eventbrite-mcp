@@ -491,7 +491,9 @@ describe('DiscoveryClient — API-first routing', () => {
     const api = mockApi(() => ({ events: { results: [] } }));
     const transport = mockTransport();
     await new DiscoveryClient(transport, api).search({ q: 'blues' });
-    expect(api.request).toHaveBeenCalledWith('POST', '/destination/search/', expect.any(Object));
+    expect(api.request).toHaveBeenCalledWith('POST', '/destination/search/', expect.any(Object), {
+      idempotent: true,
+    });
     expect(transport.requestJson).not.toHaveBeenCalled();
     expect(transport.readCookies).not.toHaveBeenCalled();
   });

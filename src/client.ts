@@ -82,8 +82,21 @@ export class EventbriteClient {
     return this.token!;
   }
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    return this.api.fetchJson<T>(method, path, body !== undefined ? { body } : {});
+  /**
+   * `idempotent: true` marks a read sent as POST (the discovery search): a
+   * timeout or dropped connection then throws the plain read error instead of
+   * mcp-utils' `WriteOutcomeUnknownError` ("the write may have happened").
+   */
+  async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    opts: { idempotent?: boolean } = {}
+  ): Promise<T> {
+    return this.api.fetchJson<T>(method, path, {
+      ...(body !== undefined ? { body } : {}),
+      ...(opts.idempotent ? { idempotent: true } : {}),
+    });
   }
 }
 
