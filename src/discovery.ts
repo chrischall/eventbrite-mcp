@@ -142,9 +142,16 @@ const COUNTRY_ALIASES: Record<string, string> = {
   roi: 'ireland',
 };
 
-/** Lowercase, drop punctuation, collapse whitespace to single hyphens. */
+/**
+ * Lowercase, strip diacritics, drop punctuation, collapse whitespace to single
+ * hyphens. Diacritics must be transliterated, not hyphenated: 'switzerland--z-rich'
+ * redirects to the COUNTRY browse page (a wrong place id), while
+ * 'switzerland--zurich' redirects to Zürich (verified live 2026-10-08).
+ */
 function normalizeSegment(s: string): string {
   return s
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[.'’]/g, '')
     .replace(/[^a-z0-9]+/g, '-')

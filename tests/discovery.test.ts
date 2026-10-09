@@ -312,6 +312,15 @@ describe('slugCandidates', () => {
   it('lowercases and strips punctuation', () => {
     expect(slugCandidates("St. Louis, MO")).toContain('mo--st-louis');
   });
+
+  // Verified live 2026-10-08: /d/switzerland--zurich/ redirects to the Zürich
+  // page, but the un-transliterated 'switzerland--z-rich' redirects to the
+  // COUNTRY page — a silently wrong place id. Strip diacritics, don't hyphenate.
+  it('transliterates accented letters instead of hyphenating them', () => {
+    expect(slugCandidates('Zürich, Switzerland')).toEqual(['switzerland--zurich']);
+    expect(slugCandidates('Montréal, Canada')).toEqual(['canada--montreal']);
+    expect(slugCandidates('Malmö, Sweden')).toEqual(['sweden--malmo']);
+  });
 });
 
 describe('extractBrowseShelves', () => {
