@@ -386,7 +386,11 @@ export class DiscoveryClient {
 
     if (this.api) {
       try {
-        return await this.api.request<T>('POST', '/destination/search/', body);
+        // A search is a read despite the POST verb: a timeout must not read as
+        // an unknown write outcome (mcp-utils 3.0's WriteOutcomeUnknownError).
+        return await this.api.request<T>('POST', '/destination/search/', body, {
+          idempotent: true,
+        });
       } catch (e) {
         // No bridge to fall back to, or nothing it could fix — surface the
         // API's own error.

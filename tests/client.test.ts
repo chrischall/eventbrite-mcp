@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ApiError, EdgeBlockedError } from '@chrischall/mcp-utils';
+import { ApiError, EdgeBlockedError, WriteOutcomeUnknownError } from '@chrischall/mcp-utils';
 
 // The client module reads env at construction time; set it before importing.
 process.env.EVENTBRITE_TOKEN = 'test-token';
@@ -98,6 +98,30 @@ describe('EventbriteClient', () => {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).status).toBe(429);
       expect(String(err)).toMatch(/Rate limited by the Eventbrite API/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('treats a failed POST sent with idempotent: true as a read (the search), not an unknown write', async () => {
+    // mcp-utils 3.0: a non-safe request that is sent but fails throws
+    // WriteOutcomeUnknownError ("do not resend"). The discovery search is a
+    // read sent as POST, so it opts out and keeps the plain network error.
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+      const client = new EventbriteClient({ token: 'good-token' });
+
+      const searchP = client
+        .request('POST', '/destination/search/', { q: 'x' }, { idempotent: true })
+        .catch((e: unknown) => e);
+      const writeP = client.request('POST', '/some/write/', { q: 'x' }).catch((e: unknown) => e);
+      await vi.runAllTimersAsync();
+
+      const searchErr = await searchP;
+      expect(searchErr).toBeInstanceOf(Error);
+      expect(searchErr).not.toBeInstanceOf(WriteOutcomeUnknownError);
+      expect(await writeP).toBeInstanceOf(WriteOutcomeUnknownError);
     } finally {
       vi.useRealTimers();
     }
