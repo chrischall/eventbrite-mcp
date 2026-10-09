@@ -9,6 +9,7 @@ import {
   parseServerData,
 } from '../src/discovery.js';
 import type { EventbriteTransport } from '../src/transport.js';
+import { ApiError, EdgeBlockedError, McpToolError } from '@chrischall/mcp-utils';
 
 // A permissive mock transport; individual tests override the verbs they use.
 function mockTransport(overrides: Partial<EventbriteTransport> = {}): EventbriteTransport {
@@ -204,9 +205,35 @@ describe('DiscoveryClient.eventsByIds', () => {
 
     const [method, path] = requestJson.mock.calls[0];
     expect(method).toBe('GET');
-    expect(path).toContain('/api/v3/destination/events/?event_ids=1,2');
+    expect(path).toContain('/api/v3/destination/events/?event_ids=1%2C2');
     expect(path).toContain('expand=primary_venue');
     expect(transport.readCookies).not.toHaveBeenCalled();
+  });
+
+  it('encodes ids and expansions on the bridge route so they cannot inject parameters', async () => {
+    const requestJson = vi.fn().mockResolvedValue({
+      data: { events: [] },
+      result: { status: 200, body: '{}', url: '' },
+    });
+    const client = new DiscoveryClient(mockTransport({ requestJson }));
+
+    await client.eventsByIds(['1&page_size=1000', '2#'], ['image&x=1']);
+
+    const path = requestJson.mock.calls[0][1] as string;
+    const q = new URLSearchParams(path.slice(path.indexOf('?') + 1));
+    expect([...q.keys()]).toEqual(['event_ids', 'expand']);
+    expect(q.get('event_ids')).toBe('1&page_size=1000,2#');
+    expect(q.get('expand')).toBe('image&x=1');
+    expect(path).not.toContain('#');
+  });
+
+  it('omits expand on the bridge route when no expansions are requested', async () => {
+    const requestJson = vi.fn().mockResolvedValue({
+      data: { events: [] },
+      result: { status: 200, body: '{}', url: '' },
+    });
+    await new DiscoveryClient(mockTransport({ requestJson })).eventsByIds(['1'], []);
+    expect(requestJson.mock.calls[0][1]).toBe('/api/v3/destination/events/?event_ids=1');
   });
 });
 
@@ -311,6 +338,15 @@ describe('slugCandidates', () => {
 
   it('lowercases and strips punctuation', () => {
     expect(slugCandidates("St. Louis, MO")).toContain('mo--st-louis');
+  });
+
+  // Verified live 2026-10-08: /d/switzerland--zurich/ redirects to the Zürich
+  // page, but the un-transliterated 'switzerland--z-rich' redirects to the
+  // COUNTRY page — a silently wrong place id. Strip diacritics, don't hyphenate.
+  it('transliterates accented letters instead of hyphenating them', () => {
+    expect(slugCandidates('Zürich, Switzerland')).toEqual(['switzerland--zurich']);
+    expect(slugCandidates('Montréal, Canada')).toEqual(['canada--montreal']);
+    expect(slugCandidates('Malmö, Sweden')).toEqual(['sweden--malmo']);
   });
 });
 
@@ -471,6 +507,77 @@ describe('DiscoveryClient — API-first routing', () => {
     });
     await new DiscoveryClient(transport, api).search({ q: 'blues' });
     expect(transport.requestJson).toHaveBeenCalled();
+  });
+
+  // Only failures the bridge can actually rescue fall back: a missing token,
+  // a rejected credential, a CDN/WAF block, a 5xx or a network failure. A
+  // caller error (400/404/422) or a rate limit is the real answer — replaying
+  // it through the browser only swaps the message for a misleading bridge one.
+  it.each([400, 404, 422, 429])(
+    'surfaces an API %i instead of falling back to the bridge',
+    async (status) => {
+      const apiErr = new ApiError(status, `Eventbrite API error ${status}: bad date_range_from`);
+      const api = mockApi(() => {
+        throw apiErr;
+      });
+      const transport = mockTransport();
+      const client = new DiscoveryClient(transport, api);
+      await expect(client.search({ q: 'blues' })).rejects.toBe(apiErr);
+      await expect(client.eventsByIds(['1'])).rejects.toBe(apiErr);
+      expect(transport.requestJson).not.toHaveBeenCalled();
+      expect(transport.readCookies).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ['a 401', new ApiError(401, 'EVENTBRITE_TOKEN is invalid')],
+    ['a 403', new ApiError(403, 'forbidden')],
+    ['a 5xx', new ApiError(503, 'unavailable')],
+    ['an edge block', new EdgeBlockedError(403, 'CloudFront', { service: 'Eventbrite' })],
+    ['a missing token', new Error('EVENTBRITE_TOKEN environment variable is required')],
+    ['a network failure', new TypeError('fetch failed')],
+  ])('falls back to the bridge on %s', async (_label, apiErr) => {
+    const api = mockApi(() => {
+      throw apiErr;
+    });
+    const transport = mockTransport({
+      requestJson: vi
+        .fn()
+        .mockResolvedValue({ data: { events: [] }, result: { status: 200, body: '{}', url: '' } }),
+    });
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await new DiscoveryClient(transport, api).eventsByIds(['1']);
+    } finally {
+      errSpy.mockRestore();
+    }
+    expect(transport.requestJson).toHaveBeenCalled();
+  });
+
+  it('names the original API error when the bridge fallback also fails', async () => {
+    const api = mockApi(() => {
+      throw new ApiError(401, 'EVENTBRITE_TOKEN is invalid or missing');
+    });
+    const transport = mockTransport({ readCookies: vi.fn().mockResolvedValue('') });
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const err = await new DiscoveryClient(transport, api)
+        .search({ q: 'x' })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(McpToolError);
+      expect((err as Error).message).toMatch(/csrftoken/);
+      expect((err as Error).message).toMatch(/EVENTBRITE_TOKEN is invalid or missing/);
+      // The bridge's own remediation hint survives the wrap.
+      expect((err as McpToolError).hint).toMatch(/eventbrite\.com tab/);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it('keeps the bridge error unchanged when no token API was tried', async () => {
+    const transport = mockTransport({ readCookies: vi.fn().mockResolvedValue('') });
+    const err = await new DiscoveryClient(transport, null).search({ q: 'x' }).catch((e: unknown) => e);
+    expect((err as Error).message).toBe('Could not read the csrftoken cookie from the browser tab.');
   });
 
   it('rethrows the API error when there is no bridge to fall back to', async () => {

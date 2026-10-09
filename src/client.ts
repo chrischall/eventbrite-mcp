@@ -65,7 +65,10 @@ export class EventbriteClient {
       // reaches here — createApiClient throws EdgeBlockedError for it first.
       onUnauthorized: () =>
         new ApiError(401, 'EVENTBRITE_TOKEN is invalid or missing (eventbrite.com/platform/api-keys)'),
-      onRateLimited: () => new Error('Rate limited by the Eventbrite API (default 2,000 calls/hour)'),
+      // Status-carrying, so discovery.ts can tell a rate limit (surface it) from
+      // a failure the browser bridge could rescue (fall back).
+      onRateLimited: () =>
+        new ApiError(429, 'Rate limited by the Eventbrite API (default 2,000 calls/hour)'),
     });
   }
 

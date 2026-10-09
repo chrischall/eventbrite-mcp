@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EdgeBlockedError } from '@chrischall/mcp-utils';
+import { ApiError, EdgeBlockedError } from '@chrischall/mcp-utils';
 
 // The client module reads env at construction time; set it before importing.
 process.env.EVENTBRITE_TOKEN = 'test-token';
@@ -76,5 +76,30 @@ describe('EventbriteClient', () => {
     const err = await client.request('GET', '/users/me/').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(EdgeBlockedError);
     expect(String(err)).not.toMatch(/EVENTBRITE_TOKEN is invalid/);
+  });
+
+  it('reports an exhausted 429 as a status-carrying ApiError(429)', async () => {
+    // The status is what lets discovery.ts decide NOT to replay a rate-limited
+    // call through the user's browser session.
+    vi.useFakeTimers();
+    try {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => '{}',
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const client = new EventbriteClient({ token: 'good-token' });
+      const pending = client.request('GET', '/users/me/').catch((e: unknown) => e);
+      await vi.runAllTimersAsync();
+      const err = await pending;
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).status).toBe(429);
+      expect(String(err)).toMatch(/Rate limited by the Eventbrite API/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

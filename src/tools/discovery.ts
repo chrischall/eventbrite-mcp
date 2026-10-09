@@ -154,7 +154,11 @@ export async function registerDiscoveryTools(
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         view: viewArg(),
-        event_ids: z.array(z.string()).min(1).max(20).describe('Numeric event ids'),
+        event_ids: z
+          .array(z.string().regex(/^\d+$/, 'Event ids are numeric'))
+          .min(1)
+          .max(20)
+          .describe('Numeric event ids'),
         expand: z
           .string()
           .optional()

@@ -111,7 +111,10 @@ reachable by a plain server-side GET.
 
 `www.eventbrite.com/api/v3/…` (the consumer host) remains WAF-blocked for
 server-side clients and is now only a FALLBACK, used when no token is
-configured or the API route refuses. Its CSRF rules still apply on that path:
+configured or the API route refuses in a way the bridge can rescue (401/403, a
+CDN/WAF block, a 5xx, a network failure). A 400/404/422/429 from the API is
+surfaced as-is — it is the real answer, not a routing problem. Its CSRF rules
+still apply on that path:
 
 ### Destination search (the site's own search) — captured live
 

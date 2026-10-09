@@ -121,6 +121,16 @@ describe('discovery tools', () => {
     expect(deps.discovery.eventsByIds).toHaveBeenCalledWith(['1', '2'], ['image', 'saves']);
   });
 
+  it('eb_event_details rejects non-numeric event ids before any request', async () => {
+    const deps = mockDeps();
+    harness = await createTestHarness((server) => registerDiscoveryTools(server, deps));
+    for (const bad of ['1&page_size=1000', '1#', '..', 'abc']) {
+      const res = await harness.callTool('eb_event_details', { event_ids: ['1', bad] });
+      expect(res.isError).toBe(true);
+    }
+    expect(deps.discovery.eventsByIds).not.toHaveBeenCalled();
+  });
+
   it('registers eb_healthcheck', async () => {
     const deps = mockDeps();
     harness = await createTestHarness((server) => registerDiscoveryTools(server, deps));

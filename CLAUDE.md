@@ -11,7 +11,9 @@ them here):
   plain bearer token (private OR public) — no WAF, no CSRF, no cookies
   (verified live 2026-07-30). `src/discovery.ts` therefore calls the API
   FIRST and falls back to `src/transport-fetchproxy.ts` (the bridge, port
-  37149) only when there is no token or the API refuses. Browse pages
+  37149) only when there is no token or the API refuses in a way the bridge
+  can rescue (`bridgeCanRescue`: 401/403, edge block, 5xx, network) — a
+  400/404/422/429 is surfaced, not replayed through the browser. Browse pages
   (`/d/<slug>/events/`) are likewise reachable by a plain server-side GET.
 - **Search POST needs CSRF**: `X-CSRFToken` = the `csrftoken` cookie (read via
   the bridge's `read_cookies` capability) + `X-Requested-With: XMLHttpRequest`.
