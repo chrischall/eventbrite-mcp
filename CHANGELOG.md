@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.8](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.7...v1.1.8) (2026-10-09)
+
+
+### Bug Fixes
+
+* annotate tools truthfully and sync manifests with the served tools ([#117](https://github.com/chrischall/eventbrite-mcp/issues/117)) ([3e9ca75](https://github.com/chrischall/eventbrite-mcp/commit/3e9ca7552dd0dd82e1e01a902512d2004e127c7f))
+* declare the plugin MCP config under the mcpServers key Claude Code reads ([#118](https://github.com/chrischall/eventbrite-mcp/issues/118)) ([6a3e399](https://github.com/chrischall/eventbrite-mcp/commit/6a3e399166b97919a02f250a328ea5436d2aa48e))
+* **deps:** Bump the production-dependencies group with 2 updates ([#111](https://github.com/chrischall/eventbrite-mcp/issues/111)) ([35c15be](https://github.com/chrischall/eventbrite-mcp/commit/35c15be052ec6080b949d0c06d888bd3a707755e))
+* **deps:** update @chrischall/mcp-utils to 3.0.0 ([#116](https://github.com/chrischall/eventbrite-mcp/issues/116)) ([1fb6ed4](https://github.com/chrischall/eventbrite-mcp/commit/1fb6ed483812d74491cf2003ca67b94e0bbdf671))
+* **discovery:** trim whitespace around eb_event_details ids instead of rejecting them ([#115](https://github.com/chrischall/eventbrite-mcp/issues/115)) ([43044e7](https://github.com/chrischall/eventbrite-mcp/commit/43044e756e9c8d9ead89704f9d911790e44d5afb)), closes [#114](https://github.com/chrischall/eventbrite-mcp/issues/114)
+* resolve low-severity audit findings ([#113](https://github.com/chrischall/eventbrite-mcp/issues/113)) ([12f787d](https://github.com/chrischall/eventbrite-mcp/commit/12f787d717dff28bbd1ae8ed9a3a6e92fe8ee39c))
+
 ## [1.1.7](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.6...v1.1.7) (2026-10-07)
 
 
