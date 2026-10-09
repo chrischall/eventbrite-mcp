@@ -382,6 +382,10 @@ export class DiscoveryClient {
     eventIds: string[],
     expand: string[] = [...DEFAULT_EVENT_EXPANSIONS]
   ): Promise<T> {
+    // Built once and shared by both routes: interpolating raw strings would let
+    // an id such as '1&page_size=1000' or '1#' inject or truncate parameters.
+    const params = new URLSearchParams({ event_ids: eventIds.join(',') });
+    if (expand.length > 0) params.set('expand', expand.join(','));
     if (this.api) {
       try {
         // Verified live 2026-07-30: the documented HOST also serves the
@@ -395,8 +399,6 @@ export class DiscoveryClient {
         // would flip the caller's parse target depending on which route ran.
         // /destination/events/ keeps one shape on both routes and accepts the
         // destination expansion names natively, so nothing needs translating.
-        const params = new URLSearchParams({ event_ids: eventIds.join(',') });
-        if (expand.length > 0) params.set('expand', expand.join(','));
         return await this.api.request<T>('GET', `/destination/events/?${params}`);
       } catch (e) {
         if (!this.transport) throw e;
@@ -407,7 +409,7 @@ export class DiscoveryClient {
       }
     }
     if (!this.transport) throw this.noRoute('event detail');
-    const path = `/api/v3/destination/events/?event_ids=${eventIds.join(',')}&expand=${expand.join(',')}`;
+    const path = `/api/v3/destination/events/?${params}`;
     const { data, result } = await this.transport.requestJson<T>('GET', path, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
     });

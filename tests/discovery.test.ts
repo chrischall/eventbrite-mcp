@@ -204,9 +204,35 @@ describe('DiscoveryClient.eventsByIds', () => {
 
     const [method, path] = requestJson.mock.calls[0];
     expect(method).toBe('GET');
-    expect(path).toContain('/api/v3/destination/events/?event_ids=1,2');
+    expect(path).toContain('/api/v3/destination/events/?event_ids=1%2C2');
     expect(path).toContain('expand=primary_venue');
     expect(transport.readCookies).not.toHaveBeenCalled();
+  });
+
+  it('encodes ids and expansions on the bridge route so they cannot inject parameters', async () => {
+    const requestJson = vi.fn().mockResolvedValue({
+      data: { events: [] },
+      result: { status: 200, body: '{}', url: '' },
+    });
+    const client = new DiscoveryClient(mockTransport({ requestJson }));
+
+    await client.eventsByIds(['1&page_size=1000', '2#'], ['image&x=1']);
+
+    const path = requestJson.mock.calls[0][1] as string;
+    const q = new URLSearchParams(path.slice(path.indexOf('?') + 1));
+    expect([...q.keys()]).toEqual(['event_ids', 'expand']);
+    expect(q.get('event_ids')).toBe('1&page_size=1000,2#');
+    expect(q.get('expand')).toBe('image&x=1');
+    expect(path).not.toContain('#');
+  });
+
+  it('omits expand on the bridge route when no expansions are requested', async () => {
+    const requestJson = vi.fn().mockResolvedValue({
+      data: { events: [] },
+      result: { status: 200, body: '{}', url: '' },
+    });
+    await new DiscoveryClient(mockTransport({ requestJson })).eventsByIds(['1'], []);
+    expect(requestJson.mock.calls[0][1]).toBe('/api/v3/destination/events/?event_ids=1');
   });
 });
 
