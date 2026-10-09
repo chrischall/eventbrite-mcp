@@ -131,6 +131,14 @@ describe('discovery tools', () => {
     expect(deps.discovery.eventsByIds).not.toHaveBeenCalled();
   });
 
+  it('eb_event_details trims surrounding whitespace from event ids rather than rejecting them', async () => {
+    const deps = mockDeps();
+    harness = await createTestHarness((server) => registerDiscoveryTools(server, deps));
+    const res = await harness.callTool('eb_event_details', { event_ids: [' 123 ', '456\n'] });
+    expect(res.isError).toBeFalsy();
+    expect(deps.discovery.eventsByIds).toHaveBeenCalledWith(['123', '456'], undefined);
+  });
+
   it('registers eb_healthcheck', async () => {
     const deps = mockDeps();
     harness = await createTestHarness((server) => registerDiscoveryTools(server, deps));

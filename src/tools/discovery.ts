@@ -155,10 +155,18 @@ export async function registerDiscoveryTools(
       inputSchema: z.object({
         view: viewArg(),
         event_ids: z
-          .array(z.string().regex(/^\d+$/, 'Event ids are numeric'))
+          // Eventbrite event ids are always numeric, so this rejects nothing
+          // that could ever have fetched an event — it only stops an id from
+          // injecting query parameters. Padding is trimmed, not rejected.
+          .array(
+            z
+              .string()
+              .trim()
+              .regex(/^\d+$/, 'Event ids are numeric — the digits at the end of an event URL'),
+          )
           .min(1)
           .max(20)
-          .describe('Numeric event ids'),
+          .describe('Numeric event ids (the digits at the end of an event URL)'),
         expand: z
           .string()
           .optional()
