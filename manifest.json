@@ -33,7 +33,10 @@
         "${__dirname}/dist/bundle.js"
       ],
       "env": {
-        "EVENTBRITE_TOKEN": "${user_config.eventbrite_token}"
+        "EVENTBRITE_TOKEN": "${user_config.eventbrite_token}",
+        "EVENTBRITE_WS_PORT": "${user_config.ws_port}",
+        "FETCHPROXY_WS_HOST": "${user_config.fetchproxy_ws_host}",
+        "FETCHPROXY_IDENTITY_DIR": "${user_config.fetchproxy_identity_dir}"
       }
     }
   },
@@ -44,6 +47,24 @@
       "description": "Personal OAuth token from eventbrite.com/platform/api-keys (needed for account/organizer tools; discovery tools use the browser bridge instead)",
       "required": false,
       "sensitive": true
+    },
+    "ws_port": {
+      "type": "string",
+      "title": "Bridge WebSocket port",
+      "description": "Optional: override the fetchproxy concentrator port (fleet default 37149). Leave blank to use it.",
+      "required": false
+    },
+    "fetchproxy_ws_host": {
+      "type": "string",
+      "title": "Bridge bind interface (hosted only)",
+      "description": "Optional. Bind interface for the bridge, a literal IP only (anything else is ignored); default 127.0.0.1. Keep on loopback — it exists for a hosted child in its own network namespace. Leave blank.",
+      "required": false
+    },
+    "fetchproxy_identity_dir": {
+      "type": "string",
+      "title": "Bridge identity directory (hosted only)",
+      "description": "Optional. Where to store the long-term bridge identity keypair, an absolute path only (anything else is ignored); default ~/.fetchproxy/identity/. Exists for a host that runs a separate child per caller. Leave blank.",
+      "required": false
     }
   },
   "compatibility": {
@@ -54,55 +75,123 @@
   "tools": [
     {
       "name": "eb_me",
-      "description": "Get the authenticated user's profile"
+      "description": "Get the authenticated Eventbrite user's profile (id, name, primary email)"
     },
     {
       "name": "eb_my_orders",
-      "description": "List your ticket orders with events"
+      "description": "List the authenticated user's ticket orders (attendee side), with the event expanded"
     },
     {
       "name": "eb_my_organizations",
-      "description": "List organizations you belong to"
+      "description": "List the organizations the authenticated user belongs to (organizer side)"
     },
     {
       "name": "eb_org_events",
-      "description": "List an organization's events"
+      "description": "List an organization's events (as organizer), optionally filtered by status"
     },
     {
       "name": "eb_org_attendees",
-      "description": "List an organization's attendees"
+      "description": "List attendees across an organization's events (organizer side)"
     },
     {
       "name": "eb_org_orders",
-      "description": "List an organization's orders"
+      "description": "List orders across an organization's events (organizer side)"
+    },
+    {
+      "name": "eb_org_venues",
+      "description": "List an organization's saved venues (name, address, geo)"
+    },
+    {
+      "name": "eb_org_discounts",
+      "description": "List an organization's discount and access codes, including their usage limits"
+    },
+    {
+      "name": "eb_org_ticket_groups",
+      "description": "List an organization's ticket groups (ticket classes bundled across events)"
+    },
+    {
+      "name": "eb_org_webhooks",
+      "description": "List an organization's registered webhooks and the actions they subscribe to"
+    },
+    {
+      "name": "eb_org_report",
+      "description": "Run an organization's sales or attendees report, optionally windowed by date"
     },
     {
       "name": "eb_event",
-      "description": "Get any public event by id"
+      "description": "Get an Eventbrite event by id (works for any public event, not just yours)"
     },
     {
       "name": "eb_ticket_classes",
-      "description": "List an event's ticket classes"
+      "description": "List an event's ticket classes (name, cost, free/paid, on-sale status)"
     },
     {
       "name": "eb_event_description",
-      "description": "Get an event's full description"
+      "description": "Get an event's full HTML description"
     },
     {
       "name": "eb_reference",
-      "description": "List categories, subcategories, or formats"
+      "description": "List Eventbrite reference data: categories, subcategories, formats, timezones, countries or regions"
+    },
+    {
+      "name": "eb_event_attendees",
+      "description": "List a single event's attendees (organizer-side; requires access to that event)"
+    },
+    {
+      "name": "eb_event_attendee",
+      "description": "Get one attendee of an event by id (barcode, profile answers, check-in state)"
+    },
+    {
+      "name": "eb_event_orders",
+      "description": "List a single event's orders (organizer-side; requires access to that event)"
+    },
+    {
+      "name": "eb_ticket_class",
+      "description": "Get one ticket class of an event by id"
+    },
+    {
+      "name": "eb_event_questions",
+      "description": "List the registration questions an event asks its buyers"
+    },
+    {
+      "name": "eb_order",
+      "description": "Get a single order by id (the buyer-side record behind a ticket)"
+    },
+    {
+      "name": "eb_venue",
+      "description": "Get a venue by id (name, address, geo)"
+    },
+    {
+      "name": "eb_venue_events",
+      "description": "List the events held at a venue"
+    },
+    {
+      "name": "eb_organizer",
+      "description": "Get an organizer's public profile by id (name, description, logo, social links)"
+    },
+    {
+      "name": "eb_organizer_events",
+      "description": "List an organizer's events — the public way to see everything one organizer is running"
+    },
+    {
+      "name": "eb_series_events",
+      "description": "List the occurrences of a recurring event series"
+    },
+    {
+      "name": "eb_user",
+      "description": "Get a public user profile by id"
     },
     {
       "name": "eb_resolve_place",
-      "description": "Resolve a location slug to a place id"
+      "description": "Resolve a location to Eventbrite's internal place id for eb_search_events"
     },
     {
       "name": "eb_search_events",
-      "description": "Search public events (via browser bridge)"
+      "description": "Search public Eventbrite events (the consumer search absent from the documented API)"
     },
     {
       "name": "eb_event_details",
-      "description": "Batch public event details (via browser bridge)"
+      "description": "Batch-fetch public event details by id (bearer token by default, browser bridge fallback when no token is configured)"
     },
     {
       "name": "eb_healthcheck",

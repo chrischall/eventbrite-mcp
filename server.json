@@ -22,6 +22,24 @@
           "isRequired": false,
           "format": "string",
           "isSecret": true
+        },
+        {
+          "name": "EVENTBRITE_WS_PORT",
+          "description": "Optional: override the fetchproxy concentrator port (fleet default 37149).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "FETCHPROXY_WS_HOST",
+          "description": "Bridge bind interface, a literal IP only (default 127.0.0.1). Keep on loopback; exists for a hosted child in its own network namespace.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "FETCHPROXY_IDENTITY_DIR",
+          "description": "Absolute path for the long-term bridge identity keypair (default ~/.fetchproxy/identity/). Exists for a host that runs a separate child per caller.",
+          "isRequired": false,
+          "format": "string"
         }
       ]
     }

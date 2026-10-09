@@ -19,7 +19,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       inputSchema: z.object({
         view: viewArg(),
       }),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ view }) => {
       const data = await client.request('GET', '/users/me/');
@@ -32,7 +32,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description:
         "List the authenticated user's ticket orders (attendee side), with the event expanded. time_filter narrows to upcoming or past events.",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         view: viewArg(),
         time_filter: z
@@ -56,7 +56,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description:
         'List the organizations the authenticated user belongs to (organizer side). Use the returned org id with eb_org_events / eb_org_attendees / eb_org_orders.',
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         view: viewArg(),
         continuation: schemaContinuation,
@@ -74,7 +74,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     'eb_org_events',
     {
       description: "List an organization's events (as organizer), optionally filtered by status.",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
@@ -103,7 +103,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     'eb_org_attendees',
     {
       description: "List attendees across an organization's events (organizer side).",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
@@ -130,7 +130,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     'eb_org_orders',
     {
       description: "List orders across an organization's events (organizer side).",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
@@ -173,7 +173,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       name,
       {
         description,
-        annotations: { readOnlyHint: true },
+        annotations: { readOnlyHint: true, openWorldHint: true },
         inputSchema: z.object({
           org_id: z.string().describe('Organization id (from eb_my_organizations)'),
           continuation: schemaContinuation,
@@ -196,7 +196,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description:
         "Run an organization's sales or attendees report — the aggregated analytics behind its events, optionally windowed by date.",
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: z.object({
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
         kind: z.enum(['sales', 'attendees']).describe('Which report to run'),
