@@ -6,9 +6,28 @@
 // Request shapes were captured live from the site's own network traffic
 // (2026-07-30, discover web app v10.14.65) — see docs/EVENTBRITE-API.md.
 
-import { McpToolError, BotWallError, parseCookieHeader } from '@chrischall/mcp-utils';
+import {
+  ApiError,
+  BotWallError,
+  EdgeBlockedError,
+  McpToolError,
+  parseCookieHeader,
+} from '@chrischall/mcp-utils';
 import type { EventbriteTransport, FetchResult } from './transport.js';
 import type { EventbriteClient } from './client.js';
+
+/**
+ * Whether a token-API failure is one the browser bridge can rescue: a missing
+ * token, a rejected credential (401/403), a CDN/WAF block, a 5xx, or a network
+ * failure. Any other 4xx — a malformed argument (400/422), an unknown id (404)
+ * or a rate limit (429) — is the real answer: replaying it through the user's
+ * browser session would only swap the API's message for a misleading bridge
+ * error ('pair the extension'), and re-send a rate-limited call at once.
+ */
+function bridgeCanRescue(e: unknown): boolean {
+  if (!(e instanceof ApiError) || e instanceof EdgeBlockedError) return true;
+  return e.status === 401 || e.status === 403 || e.status >= 500;
+}
 
 /** Browse pages are plain SSR HTML — reachable server-side, no bridge needed. */
 const BROWSE_ORIGIN = 'https://www.eventbrite.com';
@@ -269,6 +288,29 @@ export function toCompactEvent(ev: Record<string, unknown>): CompactEvent {
   return out;
 }
 
+function errorText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Run the bridge fallback; if it fails too, name the token-API failure that
+ * sent us there. Otherwise the caller sees only the bridge's error and is
+ * steered toward pairing a browser when the real fix may be the token.
+ * The bridge error's own hint (its remediation) is kept.
+ */
+async function withApiContext<T>(apiError: unknown, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (apiError === undefined) throw e;
+    const hint = e instanceof McpToolError ? e.hint : undefined;
+    throw new McpToolError(
+      `${errorText(e)} (Tried the token API first; it failed with: ${errorText(apiError)})`,
+      { cause: e, ...(hint !== undefined ? { hint } : {}) }
+    );
+  }
+}
+
 export class DiscoveryClient {
   private readonly transport: EventbriteTransport | null;
   private readonly api: EventbriteClient | null;
@@ -340,21 +382,31 @@ export class DiscoveryClient {
   /** Public event search — token API first, bridge as fallback. */
   async search<T = Record<string, unknown>>(params: SearchParams): Promise<T> {
     const body = buildSearchBody(params);
+    let apiError: unknown;
 
     if (this.api) {
       try {
         return await this.api.request<T>('POST', '/destination/search/', body);
       } catch (e) {
-        // No bridge to fall back to — surface the API's own error.
-        if (!this.transport) throw e;
+        // No bridge to fall back to, or nothing it could fix — surface the
+        // API's own error.
+        if (!this.transport || !bridgeCanRescue(e)) throw e;
+        apiError = e;
         console.error(
           '[eventbrite-mcp] token-API search failed, falling back to the browser bridge:',
-          e instanceof Error ? e.message : String(e)
+          errorText(e)
         );
       }
     }
     const transport = this.transport;
     if (!transport) throw this.noRoute('event search');
+    return withApiContext(apiError, () => this.searchViaBridge<T>(transport, body));
+  }
+
+  private async searchViaBridge<T>(
+    transport: EventbriteTransport,
+    body: DestinationSearchBody
+  ): Promise<T> {
     const attempt = async (csrf: string) =>
       transport.requestJson<T>('POST', '/api/v3/destination/search/', {
         headers: {
@@ -386,6 +438,7 @@ export class DiscoveryClient {
     // an id such as '1&page_size=1000' or '1#' inject or truncate parameters.
     const params = new URLSearchParams({ event_ids: eventIds.join(',') });
     if (expand.length > 0) params.set('expand', expand.join(','));
+    let apiError: unknown;
     if (this.api) {
       try {
         // Verified live 2026-07-30: the documented HOST also serves the
@@ -401,20 +454,24 @@ export class DiscoveryClient {
         // destination expansion names natively, so nothing needs translating.
         return await this.api.request<T>('GET', `/destination/events/?${params}`);
       } catch (e) {
-        if (!this.transport) throw e;
+        if (!this.transport || !bridgeCanRescue(e)) throw e;
+        apiError = e;
         console.error(
           '[eventbrite-mcp] token-API event batch failed, falling back to the browser bridge:',
-          e instanceof Error ? e.message : String(e)
+          errorText(e)
         );
       }
     }
-    if (!this.transport) throw this.noRoute('event detail');
-    const path = `/api/v3/destination/events/?${params}`;
-    const { data, result } = await this.transport.requestJson<T>('GET', path, {
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    const transport = this.transport;
+    if (!transport) throw this.noRoute('event detail');
+    return withApiContext(apiError, async () => {
+      const path = `/api/v3/destination/events/?${params}`;
+      const { data, result } = await transport.requestJson<T>('GET', path, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      this.guard(data, result, '/api/v3/destination/events/');
+      return data as T;
     });
-    this.guard(data, result, '/api/v3/destination/events/');
-    return data as T;
   }
 
   /**
