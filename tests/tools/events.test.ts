@@ -35,6 +35,21 @@ describe('event tools', () => {
     expect(client.request.mock.calls[1][1]).toBe('/events/42/description/');
   });
 
+  // encodeURIComponent('..') === '..', so `/events/../ticket_classes/` would
+  // climb to `/ticket_classes/` — the event tools must reject dot-only ids.
+  it.each(['eb_event', 'eb_ticket_classes', 'eb_event_description'])(
+    '%s rejects a dot-only event_id instead of traversing a path segment',
+    async (tool) => {
+      const client = mockClient();
+      harness = await createTestHarness((server) => registerEventTools(server, { client }));
+      for (const bad of ['.', '..']) {
+        const res = await harness.callTool(tool, { event_id: bad });
+        expect(res.isError).toBe(true);
+      }
+      expect(client.request).not.toHaveBeenCalled();
+    },
+  );
+
   it('eb_reference fetches the chosen list', async () => {
     const client = mockClient();
     harness = await createTestHarness((server) => registerEventTools(server, { client }));

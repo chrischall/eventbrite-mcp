@@ -34,7 +34,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       const exp = expand ?? 'venue,organizer,ticket_availability';
       const data = await client.request(
         'GET',
-        `/events/${encodeURIComponent(event_id)}/?expand=${encodeURIComponent(exp)}`,
+        `/events/${enc(event_id)}/?expand=${encodeURIComponent(exp)}`,
       );
       return viewResponse(view, data);
     },
@@ -53,7 +53,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     async ({ event_id, view }) => {
       const data = await client.request(
         'GET',
-        `/events/${encodeURIComponent(event_id)}/ticket_classes/`,
+        `/events/${enc(event_id)}/ticket_classes/`,
       );
       return viewResponse(view, data);
     },
@@ -72,7 +72,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     async ({ event_id, view }) => {
       const data = await client.request(
         'GET',
-        `/events/${encodeURIComponent(event_id)}/description/`,
+        `/events/${enc(event_id)}/description/`,
       );
       return viewResponse(view, data);
     },
