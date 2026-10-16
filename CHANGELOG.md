@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.9](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.8...v1.1.9) (2026-10-16)
+
+
+### Bug Fixes
+
+* **deps:** Bump the production-dependencies group with 4 updates ([#121](https://github.com/chrischall/eventbrite-mcp/issues/121)) ([e6732fd](https://github.com/chrischall/eventbrite-mcp/commit/e6732fd5b8356f9f902f675b25a810bd7e703aa8))
+* **discovery:** cap the direct SSR browse read ([#123](https://github.com/chrischall/eventbrite-mcp/issues/123)) ([507171d](https://github.com/chrischall/eventbrite-mcp/commit/507171ddad659ff9fcbae8291c84f7da5a622fb8))
+
 ## [1.1.8](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.7...v1.1.8) (2026-10-09)
 
 
