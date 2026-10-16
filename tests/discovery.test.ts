@@ -242,10 +242,7 @@ describe('DiscoveryClient.resolvePlace', () => {
   // server-side GET returns the full page). Stub global fetch so the suite
   // never touches the network.
   function stubFetch(status: number, body: string) {
-    const spy = vi.fn().mockResolvedValue({
-      status,
-      text: async () => body,
-    } as unknown as Response);
+    const spy = vi.fn().mockImplementation(async () => new Response(body, { status }));
     vi.stubGlobal('fetch', spy);
     return spy;
   }
@@ -458,11 +455,8 @@ describe('DiscoveryClient.resolveLocation', () => {
   it('falls through to the next candidate when the first slug 404s', async () => {
     const spy = vi
       .fn()
-      .mockResolvedValueOnce({ status: 404, text: async () => '' } as unknown as Response)
-      .mockResolvedValueOnce({
-        status: 200,
-        text: async () => '{"placeId":"999"} {"currentPlace":"London"}',
-      } as unknown as Response);
+      .mockResolvedValueOnce(new Response('', { status: 404 }))
+      .mockResolvedValueOnce(new Response('{"placeId":"999"} {"currentPlace":"London"}', { status: 200 }));
     vi.stubGlobal('fetch', spy);
     const place = await new DiscoveryClient(mockTransport()).resolveLocation('London, UK');
     expect(place.placeId).toBe('999');
@@ -470,7 +464,7 @@ describe('DiscoveryClient.resolveLocation', () => {
   });
 
   it('surfaces the last error when every candidate fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, text: async () => '' } as unknown as Response));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response('', { status: 404 })));
     await expect(
       new DiscoveryClient(mockTransport()).resolveLocation('Nowhere, Neverland')
     ).rejects.toThrow();
@@ -630,8 +624,28 @@ describe('fetchBrowsePage fallback', () => {
 
   const bridgePage = { status: 200, body: '{"placeId":"77"}', url: '' };
 
+  it('caps the direct SSR body and falls back to the bridge on an oversized page (fleet-audit#1241)', async () => {
+    const huge = 'x'.repeat(5 * 1024 * 1024) + '{"placeId":"1"}';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(huge, { status: 200 })));
+    const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
+    const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
+    expect(place.placeId).toBe('77');
+    expect(transport.fetch).toHaveBeenCalled();
+  });
+
+  it('refuses an oversized declared Content-Length without reading it', async () => {
+    const res = new Response('{"placeId":"1"}', {
+      status: 200,
+      headers: { 'content-length': String(64 * 1024 * 1024) },
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => res));
+    const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
+    const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
+    expect(place.placeId).toBe('77');
+  });
+
   it('falls back to the bridge on a 403 WAF RESPONSE, not just a thrown error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 403, text: async () => 'denied' }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response('denied', { status: 403 })));
     const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
     const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
     expect(place.placeId).toBe('77');
@@ -639,14 +653,14 @@ describe('fetchBrowsePage fallback', () => {
   });
 
   it('falls back on a 200 interstitial that carries no placeId', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, text: async () => '<html>Whoops!</html>' }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response('<html>Whoops!</html>', { status: 200 })));
     const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
     const place = await new DiscoveryClient(transport).resolvePlace('co--denver');
     expect(place.placeId).toBe('77');
   });
 
   it('does NOT fall back on a genuine 404 — that is a real answer', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, text: async () => '' }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response('', { status: 404 })));
     const transport = mockTransport();
     await expect(new DiscoveryClient(transport).resolvePlace('co--denver')).rejects.toThrow(
       /No Eventbrite browse page/
@@ -662,15 +676,8 @@ describe('fetchBrowsePage fallback', () => {
     try {
       vi.stubGlobal(
         'fetch',
-        vi.fn((_url: string, init: RequestInit) =>
-          Promise.resolve({
-            status: 200,
-            text: () =>
-              new Promise<string>((_resolve, reject) => {
-                init.signal?.addEventListener('abort', () => reject(new Error('body read aborted')));
-              }),
-          })
-        )
+        // A body stream that never closes: headers arrived, the body stalls.
+        vi.fn(async () => new Response(new ReadableStream({ start() {} }), { status: 200 }))
       );
       const transport = mockTransport({ fetch: vi.fn().mockResolvedValue(bridgePage) });
       const pending = new DiscoveryClient(transport).resolvePlace('co--denver');
@@ -684,7 +691,7 @@ describe('fetchBrowsePage fallback', () => {
   });
 
   it('surfaces the bot wall when blocked and there is no bridge', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, text: async () => '<html>Whoops!</html>' }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response('<html>Whoops!</html>', { status: 200 })));
     await expect(new DiscoveryClient(null).resolvePlace('co--denver')).rejects.toThrow(/anti-bot/i);
   });
 });

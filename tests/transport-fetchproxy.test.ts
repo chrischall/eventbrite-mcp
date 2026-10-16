@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { FetchproxyTransport } from '../src/transport-fetchproxy.js';
+import { createEventbriteTransport } from '../src/transport-fetchproxy.js';
 import type { FetchproxyServer, FetchproxyServerOpts } from '@chrischall/mcp-utils/fetchproxy';
 
 // Capture the FetchproxyServer constructor opts through the factory's
@@ -26,10 +26,10 @@ function capturingServer() {
   };
 }
 
-describe('FetchproxyTransport', () => {
+describe('createEventbriteTransport', () => {
   it('binds the fleet-wide concentrator port 37149 by default', () => {
     const { captured, createServer } = capturingServer();
-    new FetchproxyTransport({ version: '0.0.0', createServer });
+    createEventbriteTransport({ version: '0.0.0', createServer });
     expect(captured.opts?.port).toBe(37_149);
   });
 
@@ -37,7 +37,7 @@ describe('FetchproxyTransport', () => {
     // fpx/ContextMint Bridge cannot widen scope after the first pair — the cookie
     // capability must be in the FIRST pairing prompt (fleet gotcha 2026-07-30).
     const { captured, createServer } = capturingServer();
-    new FetchproxyTransport({ version: '0.0.0', createServer });
+    createEventbriteTransport({ version: '0.0.0', createServer });
     expect(captured.opts?.domains).toEqual(['eventbrite.com']);
     expect(captured.opts?.capabilities).toContain('read_cookies');
     expect(captured.opts?.cookieKeys).toEqual(['csrftoken']);
@@ -45,7 +45,7 @@ describe('FetchproxyTransport', () => {
 
   it('delegates readCookies to the server with the www subdomain and given keys', async () => {
     const { createServer, server } = capturingServer();
-    const transport = new FetchproxyTransport({ version: '0.0.0', createServer });
+    const transport = createEventbriteTransport({ version: '0.0.0', createServer });
     const raw = await transport.readCookies(['csrftoken']);
     expect(raw).toBe('csrftoken=abc');
     expect(server.readCookies).toHaveBeenCalledWith({
@@ -57,7 +57,21 @@ describe('FetchproxyTransport', () => {
 
   it('honors a port override', () => {
     const { captured, createServer } = capturingServer();
-    new FetchproxyTransport({ version: '0.0.0', port: 40_000, createServer });
+    createEventbriteTransport({ version: '0.0.0', port: 40_000, createServer });
     expect(captured.opts?.port).toBe(40_000);
+  });
+
+  it('is the shared factory transport itself (verbs straight through, no wrapper class)', async () => {
+    const { createServer, server } = capturingServer();
+    const transport = createEventbriteTransport({ version: '0.0.0', createServer });
+    expect(transport.server).toBe(server);
+    expect(transport.status()).toMatchObject({ port: 37149 });
+    expect(transport.constructor.name).not.toBe('FetchproxyTransport');
+  });
+
+  it('announces itself as eventbrite-mcp', () => {
+    const { captured, createServer } = capturingServer();
+    createEventbriteTransport({ version: '0.0.0', createServer });
+    expect(captured.opts?.serverName).toBe('eventbrite-mcp');
   });
 });
