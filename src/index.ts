@@ -3,7 +3,7 @@ import { runMcp, readPortEnv } from '@chrischall/mcp-utils';
 import { VERSION } from './version.js';
 import { client } from './client.js';
 import { DiscoveryClient } from './discovery.js';
-import { FetchproxyTransport } from './transport-fetchproxy.js';
+import { createEventbriteTransport } from './transport-fetchproxy.js';
 import { registerAccountTools } from './tools/account.js';
 import { registerEventTools } from './tools/events.js';
 import { registerLookupTools } from './tools/lookup.js';
@@ -18,7 +18,7 @@ import { registerDiscoveryTools } from './tools/discovery.js';
 //    no browser. That is now the primary route, so discovery works in a
 //    a bridge-less deployment too. The bridge (port 37149, bound lazily) is kept as
 //    a FALLBACK for when no token is configured or the API route refuses.
-const transport = new FetchproxyTransport({
+const transport = createEventbriteTransport({
   version: VERSION,
   port: readPortEnv('EVENTBRITE_WS_PORT', 37_149),
 });
