@@ -11,6 +11,7 @@ import {
   BotWallError,
   EdgeBlockedError,
   McpToolError,
+  fetchBounded,
   parseCookieHeader,
 } from '@chrischall/mcp-utils';
 import type { EventbriteTransport, FetchResult } from './transport.js';
@@ -44,26 +45,29 @@ function isUsableBrowsePage(result: FetchResult): boolean {
 }
 
 /**
- * GET a page with an AbortController deadline covering the WHOLE exchange.
- * `fetch` resolves as soon as headers arrive, so the body read must happen
- * before the timer is cleared — otherwise a server that sends headers and then
- * stalls the body hangs the call past the deadline.
+ * Ceiling on the direct SSR browse read. The live page is ~800 KB; 4 MiB
+ * leaves room for growth while stopping a misbehaving upstream (or a MITM)
+ * from streaming an unbounded body into memory (fleet-audit#1241). Over it,
+ * the read is cancelled and the call falls back to the bridge.
+ */
+const BROWSE_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * GET a page through mcp-utils `fetchBounded`: one deadline covering the
+ * headers AND the body read, the ambient tool-call cancellation, and a byte
+ * cap. The status is not judged here — `fetchBrowsePage` decides what a
+ * 403/404/interstitial means.
  */
 async function fetchTextWithTimeout(
   url: string,
   ms: number
 ): Promise<{ status: number; body: string }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': BROWSE_UA, Accept: 'text/html' },
-      signal: controller.signal,
-    });
-    return { status: res.status, body: await res.text() };
-  } finally {
-    clearTimeout(timer);
-  }
+  const res = await fetchBounded(
+    url,
+    { headers: { 'User-Agent': BROWSE_UA, Accept: 'text/html' } },
+    { timeoutMs: ms, maxBytes: BROWSE_MAX_BYTES, service: 'Eventbrite' }
+  );
+  return { status: res.status, body: res.body };
 }
 
 export const PLACE_ID_RE = /"placeId":"(\d+)"/;
