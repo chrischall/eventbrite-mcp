@@ -1,4 +1,4 @@
-import { minifiedResult, resolveView, stripMediaUrls, viewParam, type View } from '@chrischall/mcp-utils';
+import { createViewKit } from '@chrischall/mcp-utils';
 
 /**
  * The rungs this server honours (`@chrischall/mcp-utils`' `view` vocabulary;
@@ -42,8 +42,9 @@ const MEDIA_STRIP_NOTE =
  * surface is its own defect, and worse than a rung that occasionally has
  * nothing to strip.
  */
-export const viewArg = (note: string = MEDIA_STRIP_NOTE): ReturnType<typeof viewParam> =>
-  viewParam(EB_VIEWS, { note });
+const kit = createViewKit(EB_VIEWS, { note: MEDIA_STRIP_NOTE });
+
+export const viewArg: (note?: string) => ReturnType<typeof kit.viewArg> = kit.viewArg;
 
 /**
  * Answer in the requested rung.
@@ -54,8 +55,10 @@ export const viewArg = (note: string = MEDIA_STRIP_NOTE): ReturnType<typeof view
  * Callers that have ALREADY projected pass `'full'`: the value is theirs to
  * hand back whole, and media-stripping a hand-written projection on the way
  * out is exactly the un-grounded-overrules-grounded error.
+ *
+ * `@chrischall/mcp-utils`' `createViewKit` (fleet-audit#1348): compact strips
+ * media URLs, `full` hands the value back whole; both minified.
  */
-export function viewResponse(view: string | undefined, data: unknown): ReturnType<typeof minifiedResult> {
-  const rung: View = resolveView(view, EB_VIEWS);
-  return minifiedResult(rung === 'compact' ? stripMediaUrls(data) : data);
+export function viewResponse(view: string | undefined, data: unknown): ReturnType<typeof kit.viewResponse> {
+  return kit.viewResponse(view, data);
 }
