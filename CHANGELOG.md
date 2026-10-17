@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.10](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.9...v1.1.10) (2026-10-17)
+
+
+### Refactor
+
+* **view:** build the view rungs with mcp-utils createViewKit ([#125](https://github.com/chrischall/eventbrite-mcp/issues/125)) ([5f8d689](https://github.com/chrischall/eventbrite-mcp/commit/5f8d68967574f6259929689afde361667decfc95))
+
 ## [1.1.9](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.8...v1.1.9) (2026-10-16)
 
 
