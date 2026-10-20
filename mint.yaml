@@ -2,12 +2,8 @@ version: 1
 name: Eventbrite
 slug: eventbrite
 summary: >-
-  Eventbrite for Claude — your tickets and orders, organizer data, and
-  public event discovery BROWSER-BRIDGE MCP: it reaches its site through the
-  user's signed-in tab via the fetchproxy bridge, so a registration also
-  needs runtime fly-shared, bridge: true and a bridgePortEnv — registration
-  fields this manifest has no schema for. state.dataDir below is required
-  for bridge and is why it is declared.
+  Eventbrite for Claude — your tickets and orders, organizer events, attendees
+  and orders, and public event search through your signed-in browser tab.
 env:
   - name: EVENTBRITE_TOKEN
     secret: true
