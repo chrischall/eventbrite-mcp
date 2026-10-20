@@ -43,7 +43,7 @@ egress:
     - www.eventbrite.com
 examples:
   - prompt: "What free events are happening in Charlotte, NC this weekend?"
-    note: Public search via eb_resolve_place + eb_search_events; uses the browser bridge
+    note: Public search via eb_resolve_place + eb_search_events; works with EVENTBRITE_TOKEN, browser bridge only as fallback
   - prompt: "List my upcoming Eventbrite tickets with the event dates and venues."
     note: Attendee-side orders via eb_my_orders; needs EVENTBRITE_TOKEN
   - prompt: "For my organization's next event, which ticket types are still on sale and what do they cost?"
