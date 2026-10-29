@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.11](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.10...v1.1.11) (2026-10-29)
+
+
+### Bug Fixes
+
+* **deps:** Bump the production-dependencies group with 2 updates ([#134](https://github.com/chrischall/eventbrite-mcp/issues/134)) ([f3eb3e1](https://github.com/chrischall/eventbrite-mcp/commit/f3eb3e10daec926c0f27a1931f7141e7ff7ccbdf))
+* **deps:** Bump the production-dependencies group with 4 updates ([#136](https://github.com/chrischall/eventbrite-mcp/issues/136)) ([5ec16ab](https://github.com/chrischall/eventbrite-mcp/commit/5ec16ab6dbac29707324691fcbf10f221014623b))
+
+
+### Documentation
+
+* **mint:** add sample prompts for the public catalog ([#128](https://github.com/chrischall/eventbrite-mcp/issues/128)) ([2129f06](https://github.com/chrischall/eventbrite-mcp/commit/2129f065e3e21323b017410430e7cb91b37d9e8a))
+* **mint:** fit the catalog summary within 200 characters ([#131](https://github.com/chrischall/eventbrite-mcp/issues/131)) ([f652565](https://github.com/chrischall/eventbrite-mcp/commit/f65256528b742edfdb4153c49b03e595fe7e4aff))
+* **mint:** say public search works with a token, bridge only as fallback ([#132](https://github.com/chrischall/eventbrite-mcp/issues/132)) ([34941d8](https://github.com/chrischall/eventbrite-mcp/commit/34941d8cfc34312c2e0db7ceceb0ea493af722c6)), closes [#129](https://github.com/chrischall/eventbrite-mcp/issues/129)
+
 ## [1.1.10](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.9...v1.1.10) (2026-10-17)
 
 
