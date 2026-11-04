@@ -208,6 +208,19 @@ describe('eb_my_orders view: "brief"', () => {
     ]);
   });
 
+  it('escapes a bare "--" title, which the line tail would otherwise turn into a note', async () => {
+    const { body } = await brief({
+      orders: [order('--', null), order('-- ', null), order('--\n', null), order('-- --', null)],
+    });
+    for (const line of body.data) expect(line.startsWith('-- ')).toBe(false);
+    expect(body.data).toEqual([
+      '\\-- — no date — placed',
+      '\\-- — no date — placed',
+      '\\-- — no date — placed',
+      '\\-- -- — no date — placed',
+    ]);
+  });
+
   it('keeps the escape when a long escaped title is cut', async () => {
     const { body } = await brief({ orders: [order(`-- ${'y'.repeat(300)}`, '2026-12-01T09:00:00')] });
     expect(body.data[0]!.length).toBeLessThanOrEqual(120);
