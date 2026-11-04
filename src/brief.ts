@@ -7,7 +7,8 @@ import type { CallToolResult } from '@modelcontextprotocol/server';
  * <status>`. A line starting with `-- ` is a NOTE, not an item: `-- none`
  * for an empty result, `-- N of M shown` / `-- more` for a partial page, then
  * `-- next: continuation=<token>` (when it fits) so a brief caller can page on
- * by passing that token back as `continuation`.
+ * by passing that token back as `continuation`. An event name that itself
+ * starts with `-- ` or `\` is escaped with one leading `\`.
  *
  * Event names are written by the event's organizer, so the lines go inside
  * the fleet's untrusted-data envelope as `data: string[]` — exactly as a host
@@ -31,10 +32,11 @@ export function orderBriefLine(order: unknown): string {
   const o = obj(order);
   const event = obj(o.event);
   const name = obj(event.name);
-  // A title must never read as a note line.
-  let title = (str(name.text) ?? str(event.name) ?? '(untitled)').replace(/\s+/g, ' ');
-  // Strip EVERY leading dash/space run: '-- -- x' must not become '-- x'.
-  if (title.startsWith('--')) title = title.replace(/^[-\s]+/, '') || '(untitled)';
+  const raw = (str(name.text) ?? str(event.name) ?? '(untitled)').replace(/\s+/g, ' ');
+  // A title must never read as a note line: one leading backslash escapes a
+  // title starting with "-- " — or with a backslash, since the gateway strips one
+  // backslash from every item line (the consolidated brief-view contract).
+  const title = raw.startsWith('-- ') || raw.startsWith('\\') ? `\\${raw}` : raw;
   const start = obj(event.start);
   const date = str(start.local) ?? str(start.utc) ?? 'no date';
   const status = clamp(event.status === 'canceled' ? 'event canceled' : (str(o.status) ?? 'unknown'), STATUS_MAX);

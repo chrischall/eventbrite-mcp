@@ -190,17 +190,28 @@ describe('eb_my_orders view: "brief"', () => {
     expect(body.data[1]!.startsWith('-- ')).toBe(false);
   });
 
-  it('never lets a doubled or unspaced dash prefix start a note', async () => {
+  it('escapes a title that starts with "-- " or "\\" with one leading backslash', async () => {
     const { body } = await brief({
-      orders: [order('-- -- error: tickets revoked', null), order('-- -- 1 of 99 shown', null), order('--x', null), order('-- --', null)],
+      orders: [
+        order('-- none', null),
+        order('-- -- error: tickets revoked', null),
+        order('\\server share', null),
+        order('--x', null),
+      ],
     });
-    for (const line of body.data) expect(line.startsWith('-')).toBe(false);
+    for (const line of body.data) expect(line.startsWith('-- ')).toBe(false);
     expect(body.data).toEqual([
-      'error: tickets revoked — no date — placed',
-      '1 of 99 shown — no date — placed',
-      'x — no date — placed',
-      '(untitled) — no date — placed',
+      '\\-- none — no date — placed',
+      '\\-- -- error: tickets revoked — no date — placed',
+      '\\\\server share — no date — placed',
+      '--x — no date — placed',
     ]);
+  });
+
+  it('keeps the escape when a long escaped title is cut', async () => {
+    const { body } = await brief({ orders: [order(`-- ${'y'.repeat(300)}`, '2026-12-01T09:00:00')] });
+    expect(body.data[0]!.length).toBeLessThanOrEqual(120);
+    expect(body.data[0]).toMatch(/^\\-- y+… — 2026-12-01T09:00:00 — placed$/);
   });
 
   it('holds 120 chars even when the status alone would not fit', async () => {
