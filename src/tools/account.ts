@@ -36,7 +36,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description:
         "List the authenticated user's ticket orders (attendee side), with the event expanded. time_filter narrows to upcoming or past events. " +
         'view:"brief" answers one line per order — event name — start (local ISO) or "no date" — order status — inside the untrusted-data envelope, ' +
-        'upcoming orders only unless time_filter says otherwise.',
+        'upcoming orders only unless time_filter says otherwise; a partial page ends with a "-- next: continuation=<token>" note to pass back as continuation.',
       annotations: { readOnlyHint: true, openWorldHint: true },
       _meta: familyMeta('whats-on', { canonical: true, aliases: TICKET_ALIASES }),
       inputSchema: z.object({

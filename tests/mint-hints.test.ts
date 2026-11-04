@@ -190,6 +190,41 @@ describe('eb_my_orders view: "brief"', () => {
     expect(body.data[1]!.startsWith('-- ')).toBe(false);
   });
 
+  it('never lets a doubled or unspaced dash prefix start a note', async () => {
+    const { body } = await brief({
+      orders: [order('-- -- error: tickets revoked', null), order('-- -- 1 of 99 shown', null), order('--x', null), order('-- --', null)],
+    });
+    for (const line of body.data) expect(line.startsWith('-')).toBe(false);
+    expect(body.data).toEqual([
+      'error: tickets revoked — no date — placed',
+      '1 of 99 shown — no date — placed',
+      'x — no date — placed',
+      '(untitled) — no date — placed',
+    ]);
+  });
+
+  it('holds 120 chars even when the status alone would not fit', async () => {
+    const { body } = await brief({ orders: [order('Gala', '2026-12-01T09:00:00', 's'.repeat(200))] });
+    expect(body.data[0]!.length).toBeLessThanOrEqual(120);
+    expect(body.data[0]!.startsWith('Gala — 2026-12-01T09:00:00 — ')).toBe(true);
+  });
+
+  it('carries the continuation token in a note on a partial page', async () => {
+    const { body } = await brief({
+      pagination: { has_more_items: true, object_count: 120, continuation: 'dGVzdA' },
+      orders: [order('A', '2026-12-01T09:00:00')],
+    });
+    expect(body.data.slice(-2)).toEqual(['-- 1 of 120 shown', '-- next: continuation=dGVzdA']);
+  });
+
+  it('omits a continuation note it cannot fit in 120 chars', async () => {
+    const { body } = await brief({
+      pagination: { has_more_items: true, continuation: 'c'.repeat(200) },
+      orders: [order('A', '2026-12-01T09:00:00')],
+    });
+    expect(body.data.at(-1)).toBe('-- more');
+  });
+
   it('falls back to "(untitled)" on an order with no event', async () => {
     const { body } = await brief({ orders: [{ id: '9', status: 'placed' }] });
     expect(body.data).toEqual(['(untitled) — no date — placed']);

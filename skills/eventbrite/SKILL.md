@@ -81,7 +81,9 @@ every tool sits in the **family** group:
   account's upcoming ticket orders. With `view: "brief"` it answers one line
   per order (`event name — start or "no date" — order status`) inside the
   untrusted-data envelope, `-- none` when there is nothing, and
-  `-- N of M shown` / `-- more` when the page is partial. No subject (one
+  `-- N of M shown` / `-- more` when the page is partial, followed by
+  `-- next: continuation=<token>` — pass that token back as `continuation`
+  for the next page. No subject (one
   token is one account) and no date range (Eventbrite filters orders by
   upcoming/past only).
 - **Nothing answers what's-new or what's-due**; every other tool is a
