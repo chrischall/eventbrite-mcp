@@ -80,7 +80,9 @@ every tool sits in the **family** group:
 - **Canonical read:** `eb_my_orders` answers "what's on?" — the signed-in
   account's upcoming ticket orders. With `view: "brief"` it answers one line
   per order (`event name — start or "no date" — order status`) inside the
-  untrusted-data envelope, `-- none` when there is nothing, and
+  untrusted-data envelope (an event name starting with `-- ` or `\` gets
+  one leading `\`, so it never reads as a note), `-- none` when there is
+  nothing, and
   `-- N of M shown` / `-- more` when the page is partial, followed by
   `-- next: continuation=<token>` — pass that token back as `continuation`
   for the next page. No subject (one
