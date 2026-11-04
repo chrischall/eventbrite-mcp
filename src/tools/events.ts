@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import { viewArg, viewResponse } from '../view.js';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
+import { LOOKUP_META } from './hints.js';
 
 /** Reference lists served under /system/ rather than the API root. */
 const SYSTEM_LISTS = new Set(['timezones', 'countries', 'regions']);
@@ -21,6 +22,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       description:
         'Get an Eventbrite event by id (works for any public event, not just yours). Event ids are the trailing digits in an event URL (…-tickets-<id>).',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         event_id: z.string().describe('Numeric event id'),
@@ -45,6 +47,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     {
       description: "List an event's ticket classes (name, cost, free/paid, on-sale status).",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         event_id: z.string().describe('Numeric event id'),
@@ -64,6 +67,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     {
       description: "Get an event's full HTML description.",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         event_id: z.string().describe('Numeric event id'),
@@ -84,6 +88,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       description:
         'List Eventbrite reference data: categories (103=Music, 101=Business, 110=Food & Drink, …), subcategories, formats, timezones, countries or regions. Category/subcategory/format ids feed eb_search_events filters.',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         kind: z
@@ -107,6 +112,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       description:
         "List a single event's attendees (organizer-side; requires access to that event). Use changed_since to poll incrementally instead of re-reading the whole list.",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         event_id: z.string().describe('Numeric event id'),
         status: z.enum(['attending', 'not_attending', 'unpaid']).optional(),
@@ -135,6 +141,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     {
       description: 'Get one attendee of an event by id (barcode, profile answers, check-in state).',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         event_id: z.string().describe('Numeric event id'),
         attendee_id: z.string().describe('Numeric attendee id'),
@@ -153,6 +160,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
     {
       description: "List a single event's orders (organizer-side; requires access to that event).",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         event_id: z.string().describe('Numeric event id'),
         status: z.enum(['all', 'placed', 'refunded']).optional(),
@@ -182,6 +190,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       description:
         'Get one ticket class of an event by id. Use eb_ticket_classes to list them first.',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         event_id: z.string().describe('Numeric event id'),
         ticket_class_id: z.string().describe('Numeric ticket class id'),
@@ -204,6 +213,7 @@ export function registerEventTools(server: McpServer, deps: { client: Eventbrite
       description:
         "List the registration questions an event asks its buyers. Set canned=true for Eventbrite's standard question bank instead of the event's custom ones.",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         event_id: z.string().describe('Numeric event id'),
         canned: z

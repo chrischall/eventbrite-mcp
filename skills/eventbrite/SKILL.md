@@ -71,3 +71,25 @@ body shape and the resolve-location-first rule live there.
   organizer writes (create/update events etc.) but they are out of scope
   here — don't improvise write calls from this skill.
 - Never log or commit the token or captured cookies.
+
+## In context groups
+
+When this server is hosted as the `eventbrite` MCP (mcp-host context groups),
+every tool sits in the **family** group:
+
+- **Canonical read:** `eb_my_orders` answers "what's on?" — the signed-in
+  account's upcoming ticket orders. With `view: "brief"` it answers one line
+  per order (`event name — start or "no date" — order status`) inside the
+  untrusted-data envelope, `-- none` when there is nothing, and
+  `-- N of M shown` / `-- more` when the page is partial. No subject (one
+  token is one account) and no date range (Eventbrite filters orders by
+  upcoming/past only).
+- **Nothing answers what's-new or what's-due**; every other tool is a
+  `lookup` (events, venues, organizers, organization reports, event search).
+- **A compound ask** looks like "what tickets do we have coming up … and
+  anything due at school?" — the family group answers the first half from
+  `eb_my_orders`, the school group the second.
+- **Browser:** the canonical read uses `EVENTBRITE_TOKEN` and never needs a
+  browser. Only event discovery falls back to the browser bridge when no token
+  is configured; there, the group answers "needs your browser open" when the
+  signed-in eventbrite.com tab is not.

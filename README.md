@@ -65,7 +65,7 @@ Claude Code (`.mcp.json`):
 | Tool | Path | Notes |
 | --- | --- | --- |
 | `eb_me` | token | your profile |
-| `eb_my_orders` | token | your tickets, event expanded |
+| `eb_my_orders` | token | your tickets, event expanded; `view: "brief"` = one line per upcoming order |
 | `eb_my_organizations` | token | organizer orgs |
 | `eb_org_events` / `eb_org_attendees` / `eb_org_orders` | token | organizer data |
 | `eb_org_venues` / `eb_org_discounts` / `eb_org_ticket_groups` / `eb_org_webhooks` | token | org-scoped collections |
