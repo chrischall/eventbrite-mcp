@@ -3,6 +3,8 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import { viewArg, viewResponse } from '../view.js';
 import type { EventbriteClient } from '../client.js';
 import { enc, qs, schemaContinuation } from './params.js';
+import { LOOKUP_META, TICKET_ALIASES, familyMeta } from './hints.js';
+import { ordersBrief } from '../brief.js';
 
 /**
  * Account-side tools on the documented API (`eventbriteapi.com/v3`, bearer
@@ -20,6 +22,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
         view: viewArg(),
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
     },
     async ({ view }) => {
       const data = await client.request('GET', '/users/me/');
@@ -31,22 +34,33 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     'eb_my_orders',
     {
       description:
-        "List the authenticated user's ticket orders (attendee side), with the event expanded. time_filter narrows to upcoming or past events.",
+        "List the authenticated user's ticket orders (attendee side), with the event expanded. time_filter narrows to upcoming or past events. " +
+        'view:"brief" answers one line per order — event name — start (local ISO) or "no date" — order status — inside the untrusted-data envelope, ' +
+        'upcoming orders only unless time_filter says otherwise; a partial page ends with a "-- next: continuation=<token>" note to pass back as continuation.',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: familyMeta('whats-on', { canonical: true, aliases: TICKET_ALIASES }),
       inputSchema: z.object({
-        view: viewArg(),
+        view: z
+          .enum(['compact', 'full', 'brief'])
+          .optional()
+          .describe(
+            'compact (default) strips image/avatar URLs; "full" returns Eventbrite\'s payload untouched; ' +
+              '"brief" returns one line per order: event name — start or "no date" — status (upcoming by default).',
+          ),
         time_filter: z
           .enum(['all', 'current_future', 'past'])
           .optional()
-          .describe('Filter orders by event time (default all)'),
+          .describe('Filter orders by event time (default all; current_future under view:"brief")'),
         continuation: schemaContinuation,
       }),
     },
     async ({ time_filter, continuation, view }) => {
       const params = new URLSearchParams({ expand: 'event' });
-      if (time_filter) params.set('time_filter', time_filter);
+      const filter = time_filter ?? (view === 'brief' ? 'current_future' : undefined);
+      if (filter) params.set('time_filter', filter);
       if (continuation) params.set('continuation', continuation);
       const data = await client.request('GET', `/users/me/orders/?${params}`);
+      if (view === 'brief') return ordersBrief(data);
       return viewResponse(view, data);
     },
   );
@@ -57,6 +71,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description:
         'List the organizations the authenticated user belongs to (organizer side). Use the returned org id with eb_org_events / eb_org_attendees / eb_org_orders.',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         continuation: schemaContinuation,
@@ -75,6 +90,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description: "List an organization's events (as organizer), optionally filtered by status.",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
@@ -104,6 +120,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description: "List attendees across an organization's events (organizer side).",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
@@ -131,6 +148,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
     {
       description: "List orders across an organization's events (organizer side).",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
@@ -174,6 +192,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       {
         description,
         annotations: { readOnlyHint: true, openWorldHint: true },
+        _meta: LOOKUP_META,
         inputSchema: z.object({
           org_id: z.string().describe('Organization id (from eb_my_organizations)'),
           continuation: schemaContinuation,
@@ -197,6 +216,7 @@ export function registerAccountTools(server: McpServer, deps: { client: Eventbri
       description:
         "Run an organization's sales or attendees report — the aggregated analytics behind its events, optionally windowed by date.",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         org_id: z.string().describe('Organization id (from eb_my_organizations)'),
         kind: z.enum(['sales', 'attendees']).describe('Which report to run'),

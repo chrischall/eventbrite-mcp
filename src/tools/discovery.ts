@@ -10,6 +10,7 @@ import type { EventbriteClient } from '../client.js';
 import { EB_VIEWS, viewArg, viewResponse } from '../view.js';
 import { DiscoveryClient, toCompactEvent } from '../discovery.js';
 import type { EventbriteTransport } from '../transport.js';
+import { DISCOVERY_ALIASES, LOOKUP_META, familyMeta } from './hints.js';
 
 export interface DiscoveryDeps {
   discovery: DiscoveryClient;
@@ -52,6 +53,7 @@ export async function registerDiscoveryTools(
       description:
         "Resolve a location to Eventbrite's internal place id for eb_search_events. Accepts a plain location ('Charlotte, NC', 'Berlin, Germany') or a browse slug ('nc--charlotte'). A city on its own is rejected — include the state or country. Returns {placeId, name, slug, region, country} plus `shelves` — curated browse shelves (Popular, This Weekend, Online) harvested free from the same fetch.",
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         location: z
@@ -74,6 +76,7 @@ export async function registerDiscoveryTools(
       description:
         'Search public Eventbrite events (the consumer search absent from the documented API). Resolve the location to a place id first with eb_resolve_place. Filters: keyword, dates, category/subcategory/format ids (see eb_reference), free/paid, online-only. Answers with the slim per-event projection by default; pass view:"full" for Eventbrite\'s whole search envelope.',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: familyMeta('lookup', { aliases: DISCOVERY_ALIASES }),
       inputSchema: z.object({
         q: z.string().optional().describe('Keyword query'),
         place_id: z
@@ -152,6 +155,7 @@ export async function registerDiscoveryTools(
       description:
         'Batch-fetch public event details by id. Uses your bearer token by default, falling back to the browser bridge when no token is configured. For ticket-class detail prefer eb_ticket_classes.',
       annotations: { readOnlyHint: true, openWorldHint: true },
+      _meta: LOOKUP_META,
       inputSchema: z.object({
         view: viewArg(),
         event_ids: z
