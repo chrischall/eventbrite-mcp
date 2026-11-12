@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1](https://github.com/chrischall/eventbrite-mcp/compare/v1.2.0...v1.2.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **deps:** Bump @chrischall/mcp-utils ([3b88ce8](https://github.com/chrischall/eventbrite-mcp/commit/3b88ce8364d9551b5ec2978593315a6924a042b0))
+* **deps:** Bump @chrischall/mcp-utils from 3.3.1 to 3.4.0 in the production-dependencies group ([#140](https://github.com/chrischall/eventbrite-mcp/issues/140)) ([3b88ce8](https://github.com/chrischall/eventbrite-mcp/commit/3b88ce8364d9551b5ec2978593315a6924a042b0))
+* **deps:** Bump the production-dependencies group with 3 updates ([#143](https://github.com/chrischall/eventbrite-mcp/issues/143)) ([cc6914f](https://github.com/chrischall/eventbrite-mcp/commit/cc6914f9a2acc487fa12866867845fa7cb896217))
+
 ## [1.2.0](https://github.com/chrischall/eventbrite-mcp/compare/v1.1.10...v1.2.0) (2026-11-04)
 
 
